@@ -5,7 +5,8 @@ import {
   signOut,
   onAuthStateChanged,
   GoogleAuthProvider,
-  signInWithPopup
+  signInWithRedirect,
+  getRedirectResult
 } from 'firebase/auth';
 import { auth, db } from '../config/firebase';
 import { ref, set, get } from 'firebase/database';
@@ -17,6 +18,30 @@ export const AuthProvider = ({ children }) => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    // Check for redirect result when component mounts
+    getRedirectResult(auth)
+      .then(async (result) => {
+        if (result?.user) {
+          console.log('Google sign-in successful!');
+          const userRef = ref(db, `users/${result.user.uid}`);
+          const snapshot = await get(userRef);
+          
+          if (!snapshot.exists()) {
+            await set(userRef, {
+              email: result.user.email,
+              displayName: result.user.displayName,
+              photoURL: result.user.photoURL,
+              favorites: [],
+              watchHistory: [],
+              createdAt: new Date().toISOString()
+            });
+          }
+        }
+      })
+      .catch((error) => {
+        console.error('Google sign-in error:', error);
+      });
+
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
       if (user) {
         const userRef = ref(db, `users/${user.uid}`);
@@ -59,21 +84,7 @@ export const AuthProvider = ({ children }) => {
 
   const loginWithGoogle = async () => {
     const provider = new GoogleAuthProvider();
-    const result = await signInWithPopup(auth, provider);
-    const userRef = ref(db, `users/${result.user.uid}`);
-    const snapshot = await get(userRef);
-    
-    if (!snapshot.exists()) {
-      await set(userRef, {
-        email: result.user.email,
-        displayName: result.user.displayName,
-        photoURL: result.user.photoURL,
-        favorites: [],
-        watchHistory: [],
-        createdAt: new Date().toISOString()
-      });
-    }
-    return result;
+    return signInWithRedirect(auth, provider);
   };
 
   const logout = () => {
