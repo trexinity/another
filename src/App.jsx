@@ -1,21 +1,24 @@
-import { ChakraProvider, extendTheme } from "@chakra-ui/react";
-import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
-import { AuthProvider } from "./hooks/useAuth";
-import { Home } from "./pages/Home";
-import { Watch } from "./pages/Watch";
-import { Browse } from "./pages/Browse";
-import { Profile } from "./pages/Profile";
+import { ChakraProvider, extendTheme } from '@chakra-ui/react';
+import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
+import { AuthProvider } from './hooks/useAuth';
+import { Navbar } from './components/Navbar';
+import { Home } from './pages/Home';
+import { Login } from './pages/Login';
+import { Browse } from './pages/Browse';
+import { Watch } from './pages/Watch';
+import { Profile } from './pages/Profile';
 
+// Dark theme configuration
 const theme = extendTheme({
   config: {
-    initialColorMode: "dark",
+    initialColorMode: 'dark',
     useSystemColorMode: false,
   },
   styles: {
     global: {
       body: {
-        bg: "gray.900",
-        color: "white",
+        bg: 'black',
+        color: 'white',
       },
     },
   },
@@ -26,10 +29,12 @@ function App() {
     <ChakraProvider theme={theme}>
       <AuthProvider>
         <Router>
+          <Navbar />
           <Routes>
             <Route path="/" element={<Home />} />
-            <Route path="/watch/:id" element={<Watch />} />
+            <Route path="/login" element={<Login />} />
             <Route path="/browse" element={<Browse />} />
+            <Route path="/watch/:id" element={<Watch />} />
             <Route path="/profile" element={<Profile />} />
           </Routes>
         </Router>

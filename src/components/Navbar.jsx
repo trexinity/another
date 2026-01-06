@@ -7,7 +7,8 @@ import { useNavigate } from 'react-router-dom';
 export const Navbar = () => {
   const [scrolled, setScrolled] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
-  const { user, signIn, signOutUser } = useAuth();
+  const [showAuthModal, setShowAuthModal] = useState(false);
+  const { user, logout } = useAuth(); // ✅ Changed from signOutUser to logout
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -22,6 +23,15 @@ export const Navbar = () => {
     if (e.key === 'Enter' && searchQuery.trim()) {
       navigate(`/browse?q=${searchQuery}`);
     }
+  };
+
+  const handleSignIn = () => {
+    // For now, navigate to a sign-in page or open a modal
+    // Option 1: Navigate to sign-in page
+    navigate('/login');
+    
+    // Option 2: Open auth modal (if you create one)
+    // setShowAuthModal(true);
   };
 
   return (
@@ -88,13 +98,13 @@ export const Navbar = () => {
                 <MenuItem bg="gray.900" _hover={{ bg: 'gray.800' }} onClick={() => navigate('/profile')}>
                   Profile
                 </MenuItem>
-                <MenuItem bg="gray.900" _hover={{ bg: 'gray.800' }} onClick={signOutUser}>
+                <MenuItem bg="gray.900" _hover={{ bg: 'gray.800' }} onClick={logout}>
                   Sign Out
                 </MenuItem>
               </MenuList>
             </Menu>
           ) : (
-            <Button colorScheme="red" size="sm" onClick={signIn}>
+            <Button colorScheme="red" size="sm" onClick={handleSignIn}>
               Sign In
             </Button>
           )}
