@@ -1,29 +1,37 @@
 import { useState } from 'react';
-import { 
-  Box, 
-  Container, 
-  VStack, 
-  Input, 
-  Button, 
-  Text, 
+import {
+  Box,
+  Button,
+  FormControl,
+  FormLabel,
+  Input,
+  VStack,
   Heading,
+  Text,
+  useToast,
   Divider,
-  useToast
+  HStack,
 } from '@chakra-ui/react';
+import { FcGoogle } from 'react-icons/fc';
 import { useAuth } from '../hooks/useAuth';
 import { useNavigate } from 'react-router-dom';
-import { FcGoogle } from 'react-icons/fc';
 
 export const Login = () => {
-  const [isSignUp, setIsSignUp] = useState(false);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [isSignUp, setIsSignUp] = useState(false);
   const [displayName, setDisplayName] = useState('');
   const [loading, setLoading] = useState(false);
   
-  const { login, signup, loginWithGoogle } = useAuth();
+  const { login, signup, loginWithGoogle, user } = useAuth();
   const navigate = useNavigate();
   const toast = useToast();
+
+  // Redirect if already logged in
+  if (user) {
+    navigate('/');
+    return null;
+  }
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -31,27 +39,53 @@ export const Login = () => {
 
     try {
       if (isSignUp) {
+        if (!displayName.trim()) {
+          toast({
+            title: 'Name required',
+            description: 'Please enter your display name',
+            status: 'error',
+            duration: 3000,
+          });
+          setLoading(false);
+          return;
+        }
         await signup(email, password, displayName);
         toast({
-          title: 'Account created!',
+          title: 'Account created! 🎉',
+          description: 'Welcome to ANOTHER',
           status: 'success',
           duration: 3000,
         });
       } else {
         await login(email, password);
         toast({
-          title: 'Welcome back!',
+          title: 'Welcome back! 👋',
           status: 'success',
-          duration: 3000,
+          duration: 2000,
         });
       }
       navigate('/');
     } catch (error) {
+      console.error('Auth error:', error);
+      let errorMessage = 'Something went wrong';
+      
+      if (error.code === 'auth/email-already-in-use') {
+        errorMessage = 'Email already in use';
+      } else if (error.code === 'auth/weak-password') {
+        errorMessage = 'Password should be at least 6 characters';
+      } else if (error.code === 'auth/user-not-found') {
+        errorMessage = 'No account found with this email';
+      } else if (error.code === 'auth/wrong-password') {
+        errorMessage = 'Incorrect password';
+      } else if (error.code === 'auth/invalid-email') {
+        errorMessage = 'Invalid email address';
+      }
+
       toast({
         title: 'Error',
-        description: error.message,
+        description: errorMessage,
         status: 'error',
-        duration: 5000,
+        duration: 4000,
       });
     } finally {
       setLoading(false);
@@ -63,132 +97,147 @@ export const Login = () => {
     try {
       await loginWithGoogle();
       toast({
-        title: 'Signed in with Google!',
+        title: 'Signed in with Google! 🎉',
         status: 'success',
-        duration: 3000,
+        duration: 2000,
       });
-      navigate('/');
+      // Small delay to ensure user state is updated
+      setTimeout(() => {
+        navigate('/');
+      }, 500);
     } catch (error) {
-      toast({
-        title: 'Error',
-        description: error.message,
-        status: 'error',
-        duration: 5000,
-      });
+      console.error('Google sign-in error:', error);
+      if (error.code !== 'auth/popup-closed-by-user') {
+        toast({
+          title: 'Sign-in failed',
+          description: error.message,
+          status: 'error',
+          duration: 4000,
+        });
+      }
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <Box 
-      minH="100vh" 
-      bg="black" 
-      pt={24}
-      bgImage="url('https://assets.nflxext.com/ffe/siteui/vlv3/default/bg.jpg')"
-      bgSize="cover"
-      bgPosition="center"
-      position="relative"
+    <Box
+      minH="100vh"
+      display="flex"
+      alignItems="center"
+      justifyContent="center"
+      bg="brand.background"
+      px={4}
     >
       <Box
-        position="absolute"
-        top={0}
-        left={0}
-        right={0}
-        bottom={0}
-        bg="rgba(0,0,0,0.7)"
-        backdropFilter="blur(3px)"
-      />
-      
-      <Container maxW="md" position="relative" zIndex={1}>
-        <Box
-          bg="rgba(0,0,0,0.85)"
-          p={12}
-          borderRadius="lg"
-          backdropFilter="blur(10px)"
-        >
-          <VStack spacing={6} as="form" onSubmit={handleSubmit}>
-            <Heading color="white" size="xl">
-              {isSignUp ? 'Sign Up' : 'Sign In'}
-            </Heading>
+        maxW="450px"
+        w="100%"
+        bg="brand.cardBg"
+        p={8}
+        borderRadius="lg"
+        border="1px solid"
+        borderColor="gray.700"
+      >
+        <VStack spacing={6} align="stretch">
+          <Heading size="xl" textAlign="center" color="brand.primary">
+            {isSignUp ? 'Join ANOTHER' : 'Welcome Back'}
+          </Heading>
 
-            {isSignUp && (
-              <Input
-                placeholder="Display Name"
-                value={displayName}
-                onChange={(e) => setDisplayName(e.target.value)}
-                bg="gray.800"
-                border="none"
-                color="white"
-                size="lg"
-                required={isSignUp}
-              />
-            )}
+          <Text textAlign="center" color="gray.400">
+            {isSignUp ? 'Create your account' : 'Sign in to continue'}
+          </Text>
 
-            <Input
-              type="email"
-              placeholder="Email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              bg="gray.800"
-              border="none"
-              color="white"
-              size="lg"
-              required
-            />
+          {/* Google Sign In */}
+          <Button
+            leftIcon={<FcGoogle size={24} />}
+            onClick={handleGoogleSignIn}
+            isLoading={loading}
+            size="lg"
+            variant="outline"
+            colorScheme="gray"
+            _hover={{ bg: 'whiteAlpha.100' }}
+          >
+            Continue with Google
+          </Button>
 
-            <Input
-              type="password"
-              placeholder="Password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              bg="gray.800"
-              border="none"
-              color="white"
-              size="lg"
-              required
-            />
-
-            <Button
-              type="submit"
-              colorScheme="red"
-              size="lg"
-              w="full"
-              isLoading={loading}
-            >
-              {isSignUp ? 'Sign Up' : 'Sign In'}
-            </Button>
-
+          <HStack>
             <Divider />
-
-            <Button
-              leftIcon={<FcGoogle />}
-              onClick={handleGoogleSignIn}
-              size="lg"
-              w="full"
-              variant="outline"
-              color="white"
-              borderColor="gray.600"
-              _hover={{ bg: 'gray.800' }}
-              isLoading={loading}
-            >
-              Continue with Google
-            </Button>
-
-            <Text color="gray.400">
-              {isSignUp ? 'Already have an account?' : "Don't have an account?"}{' '}
-              <Text
-                as="span"
-                color="red.500"
-                cursor="pointer"
-                onClick={() => setIsSignUp(!isSignUp)}
-              >
-                {isSignUp ? 'Sign In' : 'Sign Up'}
-              </Text>
+            <Text fontSize="sm" color="gray.500" px={2}>
+              OR
             </Text>
-          </VStack>
-        </Box>
-      </Container>
+            <Divider />
+          </HStack>
+
+          {/* Email/Password Form */}
+          <form onSubmit={handleSubmit}>
+            <VStack spacing={4}>
+              {isSignUp && (
+                <FormControl isRequired>
+                  <FormLabel>Display Name</FormLabel>
+                  <Input
+                    type="text"
+                    value={displayName}
+                    onChange={(e) => setDisplayName(e.target.value)}
+                    placeholder="Your name"
+                    bg="gray.800"
+                    border="1px solid"
+                    borderColor="gray.600"
+                  />
+                </FormControl>
+              )}
+
+              <FormControl isRequired>
+                <FormLabel>Email</FormLabel>
+                <Input
+                  type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  placeholder="you@example.com"
+                  bg="gray.800"
+                  border="1px solid"
+                  borderColor="gray.600"
+                />
+              </FormControl>
+
+              <FormControl isRequired>
+                <FormLabel>Password</FormLabel>
+                <Input
+                  type="password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  placeholder="••••••••"
+                  bg="gray.800"
+                  border="1px solid"
+                  borderColor="gray.600"
+                />
+              </FormControl>
+
+              <Button
+                type="submit"
+                variant="primary"
+                size="lg"
+                width="100%"
+                isLoading={loading}
+              >
+                {isSignUp ? 'Create Account' : 'Sign In'}
+              </Button>
+            </VStack>
+          </form>
+
+          <Text textAlign="center" fontSize="sm">
+            {isSignUp ? 'Already have an account?' : "Don't have an account?"}{' '}
+            <Text
+              as="span"
+              color="brand.primary"
+              cursor="pointer"
+              fontWeight="bold"
+              onClick={() => setIsSignUp(!isSignUp)}
+            >
+              {isSignUp ? 'Sign In' : 'Sign Up'}
+            </Text>
+          </Text>
+        </VStack>
+      </Box>
     </Box>
   );
 };

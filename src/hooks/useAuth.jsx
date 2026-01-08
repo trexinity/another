@@ -5,11 +5,12 @@ import {
   signOut,
   onAuthStateChanged,
   GoogleAuthProvider,
+  signInWithPopup,
   signInWithRedirect,
   getRedirectResult
 } from 'firebase/auth';
 import { auth, db } from '../config/firebase';
-import { ref, set, get } from 'firebase/database';
+import { ref, set, get, update } from 'firebase/database';
 
 const AuthContext = createContext();
 
@@ -18,11 +19,14 @@ export const AuthProvider = ({ children }) => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Check for redirect result when component mounts
-    getRedirectResult(auth)
-      .then(async (result) => {
+    // Check for redirect result first
+    const checkRedirect = async () => {
+      try {
+        const result = await getRedirectResult(auth);
         if (result?.user) {
-          console.log('Google sign-in successful!');
+          console.log('✅ Google sign-in successful:', result.user.email);
+          
+          // Create/update user in database
           const userRef = ref(db, `users/${result.user.uid}`);
           const snapshot = await get(userRef);
           
@@ -32,32 +36,45 @@ export const AuthProvider = ({ children }) => {
               displayName: result.user.displayName,
               photoURL: result.user.photoURL,
               favorites: [],
-              watchHistory: [],
               createdAt: new Date().toISOString()
             });
+            console.log('✅ User created in database');
           }
         }
-      })
-      .catch((error) => {
-        console.error('Google sign-in error:', error);
-      });
+      } catch (error) {
+        if (error.code !== 'auth/popup-closed-by-user') {
+          console.error('❌ Redirect error:', error);
+        }
+      }
+    };
 
-    const unsubscribe = onAuthStateChanged(auth, async (user) => {
-      if (user) {
-        const userRef = ref(db, `users/${user.uid}`);
-        const snapshot = await get(userRef);
-        const userData = snapshot.val();
-        
-        setUser({
-          uid: user.uid,
-          email: user.email,
-          displayName: user.displayName || userData?.displayName || 'User',
-          photoURL: user.photoURL || userData?.photoURL || '',
-          favorites: userData?.favorites || [],
-          watchHistory: userData?.watchHistory || []
-        });
+    checkRedirect();
+
+    // Listen for auth state changes
+    const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
+      console.log('🔄 Auth state changed:', firebaseUser?.email || 'No user');
+      
+      if (firebaseUser) {
+        try {
+          const userRef = ref(db, `users/${firebaseUser.uid}`);
+          const snapshot = await get(userRef);
+          const userData = snapshot.val();
+          
+          setUser({
+            uid: firebaseUser.uid,
+            email: firebaseUser.email,
+            displayName: firebaseUser.displayName || userData?.displayName || 'User',
+            photoURL: firebaseUser.photoURL || userData?.photoURL || '',
+            favorites: userData?.favorites || []
+          });
+          
+          console.log('✅ User loaded:', firebaseUser.email);
+        } catch (error) {
+          console.error('❌ Error loading user data:', error);
+        }
       } else {
         setUser(null);
+        console.log('❌ No user signed in');
       }
       setLoading(false);
     });
@@ -66,55 +83,110 @@ export const AuthProvider = ({ children }) => {
   }, []);
 
   const signup = async (email, password, displayName) => {
-    const result = await createUserWithEmailAndPassword(auth, email, password);
-    const userRef = ref(db, `users/${result.user.uid}`);
-    await set(userRef, {
-      email,
-      displayName,
-      favorites: [],
-      watchHistory: [],
-      createdAt: new Date().toISOString()
-    });
-    return result;
+    try {
+      const result = await createUserWithEmailAndPassword(auth, email, password);
+      const userRef = ref(db, `users/${result.user.uid}`);
+      await set(userRef, {
+        email,
+        displayName,
+        favorites: [],
+        createdAt: new Date().toISOString()
+      });
+      console.log('✅ Signup successful');
+      return result;
+    } catch (error) {
+      console.error('❌ Signup error:', error);
+      throw error;
+    }
   };
 
-  const login = (email, password) => {
-    return signInWithEmailAndPassword(auth, email, password);
+  const login = async (email, password) => {
+    try {
+      const result = await signInWithEmailAndPassword(auth, email, password);
+      console.log('✅ Login successful');
+      return result;
+    } catch (error) {
+      console.error('❌ Login error:', error);
+      throw error;
+    }
   };
 
   const loginWithGoogle = async () => {
-    const provider = new GoogleAuthProvider();
-    return signInWithRedirect(auth, provider);
+    try {
+      const provider = new GoogleAuthProvider();
+      
+      // Try popup first (faster)
+      try {
+        const result = await signInWithPopup(auth, provider);
+        console.log('✅ Google popup sign-in successful');
+        
+        // Create user in database if new
+        const userRef = ref(db, `users/${result.user.uid}`);
+        const snapshot = await get(userRef);
+        
+        if (!snapshot.exists()) {
+          await set(userRef, {
+            email: result.user.email,
+            displayName: result.user.displayName,
+            photoURL: result.user.photoURL,
+            favorites: [],
+            createdAt: new Date().toISOString()
+          });
+        }
+        
+        return result;
+      } catch (popupError) {
+        // If popup blocked, fall back to redirect
+        if (popupError.code === 'auth/popup-blocked' || popupError.code === 'auth/cancelled-popup-request') {
+          console.log('🔄 Popup blocked, using redirect...');
+          await signInWithRedirect(auth, provider);
+        } else {
+          throw popupError;
+        }
+      }
+    } catch (error) {
+      console.error('❌ Google sign-in error:', error);
+      throw error;
+    }
   };
 
-  const logout = () => {
-    return signOut(auth);
+  const logout = async () => {
+    try {
+      await signOut(auth);
+      console.log('✅ Logout successful');
+    } catch (error) {
+      console.error('❌ Logout error:', error);
+      throw error;
+    }
   };
 
   const addToFavorites = async (movieId) => {
     if (!user) return;
-    const newFavorites = [...(user.favorites || []), movieId];
-    const userRef = ref(db, `users/${user.uid}/favorites`);
-    await set(userRef, newFavorites);
-    setUser({ ...user, favorites: newFavorites });
+    
+    try {
+      const newFavorites = [...(user.favorites || []), movieId];
+      const userRef = ref(db, `users/${user.uid}`);
+      await update(userRef, { favorites: newFavorites });
+      setUser({ ...user, favorites: newFavorites });
+      console.log('✅ Added to favorites');
+    } catch (error) {
+      console.error('❌ Error adding to favorites:', error);
+      throw error;
+    }
   };
 
   const removeFromFavorites = async (movieId) => {
     if (!user) return;
-    const newFavorites = user.favorites.filter(id => id !== movieId);
-    const userRef = ref(db, `users/${user.uid}/favorites`);
-    await set(userRef, newFavorites);
-    setUser({ ...user, favorites: newFavorites });
-  };
-
-  const addToHistory = async (movieId) => {
-    if (!user) return;
-    const watchHistory = user.watchHistory || [];
-    if (!watchHistory.includes(movieId)) {
-      const newHistory = [...watchHistory, movieId];
-      const userRef = ref(db, `users/${user.uid}/watchHistory`);
-      await set(userRef, newHistory);
-      setUser({ ...user, watchHistory: newHistory });
+    
+    try {
+      const newFavorites = user.favorites.filter(id => id !== movieId);
+      const userRef = ref(db, `users/${user.uid}`);
+      await update(userRef, { favorites: newFavorites });
+      setUser({ ...user, favorites: newFavorites });
+      console.log('✅ Removed from favorites');
+    } catch (error) {
+      console.error('❌ Error removing from favorites:', error);
+      throw error;
     }
   };
 
@@ -126,8 +198,7 @@ export const AuthProvider = ({ children }) => {
     loginWithGoogle,
     logout,
     addToFavorites,
-    removeFromFavorites,
-    addToHistory
+    removeFromFavorites
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

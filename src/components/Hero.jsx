@@ -1,113 +1,120 @@
-import { Box, Flex, Heading, Text, Button, Badge } from '@chakra-ui/react';
-import { motion } from 'framer-motion';
+import { Box, Button, HStack, Text, VStack, Badge } from '@chakra-ui/react';
 import { useNavigate } from 'react-router-dom';
-
-const MotionBox = motion(Box);
+import { AiFillPlayCircle, AiFillInfoCircle, AiOutlinePlus } from 'react-icons/ai';
+import { useAuth } from '../hooks/useAuth';
 
 export const Hero = ({ movie }) => {
   const navigate = useNavigate();
+  const { user, addToFavorites } = useAuth();
 
   if (!movie) return null;
+
+  const handleAddToList = async () => {
+    if (!user) {
+      navigate('/login');
+      return;
+    }
+    await addToFavorites(movie.id);
+  };
 
   return (
     <Box
       position="relative"
-      h="85vh"
-      overflow="hidden"
+      h="80vh"
+      bgImage={`url(${movie.thumbnailUrl})`}
+      bgSize="cover"
+      bgPosition="center"
+      _before={{
+        content: '""',
+        position: 'absolute',
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
+        bg: 'linear-gradient(to right, rgba(0,0,0,0.8) 0%, rgba(0,0,0,0.4) 50%, transparent 100%), linear-gradient(to top, rgba(0,0,0,0.8) 0%, transparent 60%)',
+      }}
     >
       <Box
         position="absolute"
-        top={0}
-        left={0}
-        right={0}
-        bottom={0}
-        bgImage={`url(${movie.banner || movie.thumbnail})`}
-        bgSize="cover"
-        bgPosition="center"
-        _before={{
-          content: '""',
-          position: 'absolute',
-          top: 0,
-          left: 0,
-          right: 0,
-          bottom: 0,
-          bg: 'linear-gradient(90deg, rgba(0,0,0,0.95) 0%, transparent 50%, rgba(0,0,0,0.7) 100%)',
-        }}
-        _after={{
-          content: '""',
-          position: 'absolute',
-          bottom: 0,
-          left: 0,
-          right: 0,
-          h: '180px',
-          bg: 'linear-gradient(0deg, #141414 0%, transparent 100%)',
-        }}
-      />
-
-      <MotionBox
-        position="relative"
-        zIndex={2}
-        maxW="650px"
-        pt="20vh"
-        px={8}
-        initial={{ opacity: 0, y: 40 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 1 }}
+        bottom="100px"
+        left="0"
+        right="0"
+        px={{ base: 4, md: 8, lg: 16 }}
+        maxW="1400px"
+        mx="auto"
       >
-        <Badge colorScheme="red" mb={4} px={3} py={1} fontSize="xs" fontWeight="bold">
-          ⚡ FEATURED TODAY
-        </Badge>
-
-        <Heading
-          fontSize={{ base: '4xl', md: '6xl' }}
-          fontWeight="900"
-          lineHeight="1.1"
-          mb={4}
-          textShadow="3px 3px 12px rgba(0,0,0,0.9)"
-        >
-          {movie.title}
-        </Heading>
-
-        <Flex gap={3} mb={4} flexWrap="wrap" fontSize={{ base: 'sm', md: 'md' }}>
-          <Text color="green.400" fontWeight="bold">{movie.match || 95}% Match</Text>
-          <Text>{movie.year}</Text>
-          <Badge variant="outline" colorScheme="gray">{movie.rating || 'PG-13'}</Badge>
-          <Text>{movie.duration || '2h'}</Text>
-        </Flex>
-
-        <Text
-          fontSize={{ base: 'md', md: 'lg' }}
-          lineHeight="1.6"
-          mb={6}
-          noOfLines={3}
-          textShadow="2px 2px 6px rgba(0,0,0,0.9)"
-        >
-          {movie.description || 'Watch now on Another'}
-        </Text>
-
-        <Flex gap={3} flexWrap="wrap">
-          <Button
-            size="lg"
-            bg="white"
-            color="black"
-            leftIcon={<>▶</>}
-            _hover={{ bg: 'gray.200', transform: 'scale(1.05)' }}
-            onClick={() => navigate(`/watch/${movie.id}`)}
+        <VStack align="start" spacing={4} maxW="600px">
+          <Text
+            fontSize={{ base: '3xl', md: '5xl', lg: '6xl' }}
+            fontWeight="900"
+            lineHeight="1.1"
+            textShadow="2px 2px 4px rgba(0,0,0,0.8)"
           >
-            Play Now
-          </Button>
-          <Button
-            size="lg"
-            bg="rgba(109,109,110,0.8)"
-            color="white"
-            leftIcon={<>ⓘ</>}
-            _hover={{ bg: 'rgba(109,109,110,0.5)' }}
-            onClick={() => navigate(`/browse`)}
+            {movie.title}
+          </Text>
+
+          <HStack spacing={3}>
+            <Badge colorScheme="green" fontSize="sm" px={2} py={1}>
+              {movie.year}
+            </Badge>
+            <Text fontSize="sm" fontWeight="bold" textTransform="uppercase">
+              {movie.genre}
+            </Text>
+            <Text fontSize="sm">
+              {movie.views || 0} views
+            </Text>
+          </HStack>
+
+          <Text
+            fontSize={{ base: 'md', md: 'lg' }}
+            lineHeight="1.6"
+            noOfLines={3}
+            textShadow="1px 1px 2px rgba(0,0,0,0.8)"
           >
-            More Info
-          </Button>
-        </Flex>
-      </MotionBox>
+            {movie.description}
+          </Text>
+
+          <HStack spacing={4} mt={4}>
+            <Button
+              leftIcon={<AiFillPlayCircle size={24} />}
+              size="lg"
+              bg="white"
+              color="black"
+              _hover={{ bg: 'gray.200' }}
+              fontWeight="bold"
+              px={8}
+              onClick={() => navigate(`/watch/${movie.id}`)}
+            >
+              Play
+            </Button>
+            
+            <Button
+              leftIcon={<AiFillInfoCircle size={24} />}
+              size="lg"
+              bg="rgba(109,109,110,0.7)"
+              color="white"
+              _hover={{ bg: 'rgba(109,109,110,0.4)' }}
+              fontWeight="bold"
+              px={8}
+              onClick={() => navigate(`/watch/${movie.id}`)}
+            >
+              More Info
+            </Button>
+
+            <Button
+              leftIcon={<AiOutlinePlus size={24} />}
+              size="lg"
+              bg="transparent"
+              border="2px solid white"
+              color="white"
+              _hover={{ bg: 'whiteAlpha.200' }}
+              onClick={handleAddToList}
+            >
+              My List
+            </Button>
+          </HStack>
+        </VStack>
+      </Box>
     </Box>
   );
 };

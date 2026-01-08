@@ -1,14 +1,14 @@
-import { Box, Flex, Input, InputGroup, InputLeftElement, Avatar, Button, Menu, MenuButton, MenuList, MenuItem, useColorModeValue } from '@chakra-ui/react';
+import { Box, Flex, Input, InputGroup, InputLeftElement, Avatar, Button, Menu, MenuButton, MenuList, MenuItem, HStack, Link as ChakraLink } from '@chakra-ui/react';
 import { SearchIcon } from '@chakra-ui/icons';
 import { useState, useEffect } from 'react';
 import { useAuth } from "../hooks/useAuth";
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
+import { isAdmin } from '../config/admins';
 
 export const Navbar = () => {
   const [scrolled, setScrolled] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
-  const [showAuthModal, setShowAuthModal] = useState(false);
-  const { user, logout } = useAuth(); // ✅ Changed from signOutUser to logout
+  const { user, logout } = useAuth();
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -21,17 +21,8 @@ export const Navbar = () => {
 
   const handleSearch = (e) => {
     if (e.key === 'Enter' && searchQuery.trim()) {
-      navigate(`/browse?q=${searchQuery}`);
+      navigate(`/search?q=${searchQuery}`);
     }
-  };
-
-  const handleSignIn = () => {
-    // For now, navigate to a sign-in page or open a modal
-    // Option 1: Navigate to sign-in page
-    navigate('/login');
-    
-    // Option 2: Open auth modal (if you create one)
-    // setShowAuthModal(true);
   };
 
   return (
@@ -57,7 +48,7 @@ export const Navbar = () => {
           <Box
             fontSize="2xl"
             fontWeight="900"
-            color="red.600"
+            color="brand.primary"
             cursor="pointer"
             onClick={() => navigate('/')}
             _hover={{ transform: 'scale(1.05)' }}
@@ -67,9 +58,27 @@ export const Navbar = () => {
           </Box>
           
           <Flex gap={6} display={{ base: 'none', md: 'flex' }}>
-            <Box cursor="pointer" onClick={() => navigate('/')} _hover={{ color: 'white' }} transition="color 0.2s">Home</Box>
-            <Box cursor="pointer" onClick={() => navigate('/browse')} _hover={{ color: 'white' }} transition="color 0.2s">Browse</Box>
-            <Box cursor="pointer" _hover={{ color: 'white' }} transition="color 0.2s">Trending</Box>
+            <ChakraLink as={Link} to="/" _hover={{ color: 'white' }} transition="color 0.2s">
+              Home
+            </ChakraLink>
+            <ChakraLink as={Link} to="/browse" _hover={{ color: 'white' }} transition="color 0.2s">
+              Browse
+            </ChakraLink>
+            <ChakraLink as={Link} to="/categories" _hover={{ color: 'white' }} transition="color 0.2s">
+              Categories
+            </ChakraLink>
+            {user && isAdmin(user.email) && (
+              <ChakraLink 
+                as={Link} 
+                to="/admin" 
+                _hover={{ color: 'white' }} 
+                transition="color 0.2s"
+                color="green.400"
+                fontWeight="bold"
+              >
+                Upload
+              </ChakraLink>
+            )}
           </Flex>
         </Flex>
 
@@ -79,13 +88,13 @@ export const Navbar = () => {
               <SearchIcon color="gray.400" />
             </InputLeftElement>
             <Input
-              placeholder="Search movies..."
+              placeholder="Search..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               onKeyPress={handleSearch}
               bg="rgba(255,255,255,0.1)"
               border="1px solid rgba(255,255,255,0.2)"
-              _focus={{ bg: 'rgba(255,255,255,0.15)', borderColor: 'red.500' }}
+              _focus={{ bg: 'rgba(255,255,255,0.15)', borderColor: 'brand.primary' }}
             />
           </InputGroup>
 
@@ -98,13 +107,21 @@ export const Navbar = () => {
                 <MenuItem bg="gray.900" _hover={{ bg: 'gray.800' }} onClick={() => navigate('/profile')}>
                   Profile
                 </MenuItem>
+                {isAdmin(user.email) && (
+                  <MenuItem bg="gray.900" _hover={{ bg: 'gray.800' }} onClick={() => navigate('/admin')}>
+                    Upload Content
+                  </MenuItem>
+                )}
+                <MenuItem bg="gray.900" _hover={{ bg: 'gray.800' }} onClick={() => navigate('/settings')}>
+                  Settings
+                </MenuItem>
                 <MenuItem bg="gray.900" _hover={{ bg: 'gray.800' }} onClick={logout}>
                   Sign Out
                 </MenuItem>
               </MenuList>
             </Menu>
           ) : (
-            <Button colorScheme="red" size="sm" onClick={handleSignIn}>
+            <Button variant="primary" size="sm" onClick={() => navigate('/login')}>
               Sign In
             </Button>
           )}

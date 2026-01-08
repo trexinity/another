@@ -1,103 +1,123 @@
-import { useEffect, useState } from 'react';
+import { useState, useEffect } from 'react';
 import {
   Box,
   Container,
-  Heading,
+  Input,
+  InputGroup,
+  InputLeftElement,
   SimpleGrid,
-  Image,
   Text,
   VStack,
-  HStack,
-  Badge,
   Select,
-  Spinner,
+  HStack,
+  Image,
+  Heading,
+  Badge,
 } from '@chakra-ui/react';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { SearchIcon } from '@chakra-ui/icons';
 import { ref, get } from 'firebase/database';
 import { db } from '../config/firebase';
+import { useNavigate, useSearchParams } from 'react-router-dom';
+import { debounce } from 'lodash';
 
-export const Browse = () => {
+export const Search = () => {
   const navigate = useNavigate();
-  const [searchParams] = useSearchParams();
-  const genreFilter = searchParams.get('genre');
-  
-  const [movies, setMovies] = useState([]);
+  const [searchParams, setSearchParams] = useSearchParams();
+  const [searchQuery, setSearchQuery] = useState(searchParams.get('q') || '');
+  const [allMovies, setAllMovies] = useState([]);
   const [filteredMovies, setFilteredMovies] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [selectedGenre, setSelectedGenre] = useState(genreFilter || 'all');
-  const [sortBy, setSortBy] = useState('newest');
+  const [selectedGenre, setSelectedGenre] = useState('all');
+  const [selectedYear, setSelectedYear] = useState('all');
+  const [sortBy, setSortBy] = useState('relevance');
 
   useEffect(() => {
     const loadMovies = async () => {
-      try {
-        const moviesRef = ref(db, 'movies');
-        const snapshot = await get(moviesRef);
-
-        if (snapshot.exists()) {
-          const moviesData = Object.entries(snapshot.val()).map(([id, data]) => ({
-            id,
-            ...data,
-          }));
-          setMovies(moviesData);
-        }
-      } catch (error) {
-        console.error('Error loading movies:', error);
-      } finally {
-        setLoading(false);
+      const moviesRef = ref(db, 'movies');
+      const snapshot = await get(moviesRef);
+      if (snapshot.exists()) {
+        const moviesData = Object.entries(snapshot.val()).map(([id, data]) => ({
+          id,
+          ...data,
+        }));
+        setAllMovies(moviesData);
       }
     };
-
     loadMovies();
   }, []);
 
   useEffect(() => {
-    let filtered = [...movies];
+    let results = [...allMovies];
 
-    // Genre filter
-    if (selectedGenre !== 'all') {
-      filtered = filtered.filter((movie) => movie.genre === selectedGenre);
+    if (searchQuery) {
+      results = results.filter(
+        (movie) =>
+          movie.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+          movie.description?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+          movie.genre?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+          movie.cast?.toLowerCase().includes(searchQuery.toLowerCase())
+      );
     }
 
-    // Sorting
+    if (selectedGenre !== 'all') {
+      results = results.filter((movie) => movie.genre === selectedGenre);
+    }
+
+    if (selectedYear !== 'all') {
+      results = results.filter((movie) => movie.year === parseInt(selectedYear));
+    }
+
     switch (sortBy) {
       case 'newest':
-        filtered.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+        results.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
         break;
       case 'oldest':
-        filtered.sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt));
+        results.sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt));
         break;
       case 'views':
-        filtered.sort((a, b) => (b.views || 0) - (a.views || 0));
+        results.sort((a, b) => (b.views || 0) - (a.views || 0));
         break;
       case 'title':
-        filtered.sort((a, b) => a.title.localeCompare(b.title));
+        results.sort((a, b) => a.title.localeCompare(b.title));
         break;
       default:
         break;
     }
 
-    setFilteredMovies(filtered);
-  }, [movies, selectedGenre, sortBy]);
+    setFilteredMovies(results);
+  }, [searchQuery, selectedGenre, selectedYear, sortBy, allMovies]);
 
-  if (loading) {
-    return (
-      <Box minH="100vh" display="flex" alignItems="center" justifyContent="center" pt={24}>
-        <VStack spacing={4}>
-          <Spinner size="xl" color="brand.primary" thickness="4px" />
-          <Text>Loading content...</Text>
-        </VStack>
-      </Box>
-    );
-  }
+  const handleSearch = debounce((value) => {
+    setSearchQuery(value);
+    if (value) {
+      setSearchParams({ q: value });
+    } else {
+      setSearchParams({});
+    }
+  }, 300);
+
+  const years = [...new Set(allMovies.map((m) => m.year))].sort((a, b) => b - a);
 
   return (
     <Box minH="100vh" pt={24} pb={12} bg="brand.background">
       <Container maxW="1400px">
         <VStack spacing={6} align="stretch">
-          <Heading size="2xl">Browse All Content</Heading>
+          <InputGroup size="lg">
+            <InputLeftElement pointerEvents="none">
+              <SearchIcon color="gray.400" />
+            </InputLeftElement>
+            <Input
+              placeholder="Search for movies, shows, genres..."
+              defaultValue={searchQuery}
+              onChange={(e) => handleSearch(e.target.value)}
+              bg="brand.cardBg"
+              border="1px solid"
+              borderColor="gray.700"
+              _focus={{ borderColor: 'brand.primary' }}
+              fontSize="lg"
+            />
+          </InputGroup>
 
-          {/* Filters */}
-          <HStack spacing={4}>
+          <HStack spacing={4} flexWrap="wrap">
             <Select
               value={selectedGenre}
               onChange={(e) => setSelectedGenre(e.target.value)}
@@ -117,11 +137,26 @@ export const Browse = () => {
             </Select>
 
             <Select
+              value={selectedYear}
+              onChange={(e) => setSelectedYear(e.target.value)}
+              bg="brand.cardBg"
+              maxW="150px"
+            >
+              <option value="all">All Years</option>
+              {years.map((year) => (
+                <option key={year} value={year}>
+                  {year}
+                </option>
+              ))}
+            </Select>
+
+            <Select
               value={sortBy}
               onChange={(e) => setSortBy(e.target.value)}
               bg="brand.cardBg"
               maxW="200px"
             >
+              <option value="relevance">Relevance</option>
               <option value="newest">Newest First</option>
               <option value="oldest">Oldest First</option>
               <option value="views">Most Viewed</option>
@@ -130,10 +165,9 @@ export const Browse = () => {
           </HStack>
 
           <Text color="gray.400">
-            {filteredMovies.length} title{filteredMovies.length !== 1 ? 's' : ''}
+            {filteredMovies.length} result{filteredMovies.length !== 1 ? 's' : ''} found
           </Text>
 
-          {/* Movies Grid */}
           {filteredMovies.length > 0 ? (
             <SimpleGrid columns={{ base: 2, md: 3, lg: 4, xl: 5 }} spacing={6}>
               {filteredMovies.map((movie) => (
@@ -161,7 +195,7 @@ export const Browse = () => {
                       {movie.title}
                     </Text>
                     <HStack spacing={2}>
-                      <Badge colorScheme="red" fontSize="xs" textTransform="capitalize">
+                      <Badge colorScheme="red" fontSize="xs">
                         {movie.genre}
                       </Badge>
                       <Text fontSize="xs" color="gray.400">
@@ -175,10 +209,10 @@ export const Browse = () => {
           ) : (
             <Box textAlign="center" py={20}>
               <Heading size="lg" mb={2}>
-                No content found
+                No results found
               </Heading>
               <Text color="gray.400">
-                Try adjusting your filters
+                Try adjusting your search or filters
               </Text>
             </Box>
           )}
