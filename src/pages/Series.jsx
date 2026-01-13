@@ -23,22 +23,21 @@ import { useNavigate } from 'react-router-dom';
 import { useWatchlist } from '../hooks/useWatchlist';
 import { FiChevronDown } from 'react-icons/fi';
 
-export const Movies = () => {
+export const Series = () => {
   const { colorMode } = useColorMode();
   const navigate = useNavigate();
   const { watchlist } = useWatchlist();
 
-  const [movies, setMovies] = useState([]);
+  const [series, setSeries] = useState([]);
   const [loading, setLoading] = useState(true);
   const [selectedGenre, setSelectedGenre] = useState('all');
-  const [selectedYear, setSelectedYear] = useState('all');
   const [sortBy, setSortBy] = useState('latest');
 
   useEffect(() => {
-    fetchMovies();
+    fetchSeries();
   }, []);
 
-  const fetchMovies = async () => {
+  const fetchSeries = async () => {
     setLoading(true);
     try {
       const moviesRef = ref(db, 'movies');
@@ -46,11 +45,11 @@ export const Movies = () => {
 
       if (snapshot.exists()) {
         const data = snapshot.val();
-        const moviesArray = Object.keys(data)
+        const seriesArray = Object.keys(data)
           .map((key) => ({ id: key, ...data[key] }))
-          .filter((m) => m.type === 'movie' || !m.type);
+          .filter((m) => m.type === 'series');
 
-        setMovies(moviesArray);
+        setSeries(seriesArray);
       }
     } catch (error) {
       console.error('Error:', error);
@@ -59,27 +58,20 @@ export const Movies = () => {
     }
   };
 
-  // Get unique genres and years
-  const genres = ['all', ...new Set(movies.map((m) => m.genre).filter(Boolean))];
-  const years = ['all', ...new Set(movies.map((m) => m.year).filter(Boolean))].sort((a, b) => b - a);
+  const genres = ['all', ...new Set(series.map((m) => m.genre).filter(Boolean))];
 
-  // Filter and sort
-  let filteredMovies = movies;
+  let filteredSeries = series;
 
   if (selectedGenre !== 'all') {
-    filteredMovies = filteredMovies.filter((m) => m.genre === selectedGenre);
-  }
-
-  if (selectedYear !== 'all') {
-    filteredMovies = filteredMovies.filter((m) => m.year === selectedYear);
+    filteredSeries = filteredSeries.filter((m) => m.genre === selectedGenre);
   }
 
   if (sortBy === 'latest') {
-    filteredMovies = [...filteredMovies].sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0));
+    filteredSeries = [...filteredSeries].sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0));
   } else if (sortBy === 'popular') {
-    filteredMovies = [...filteredMovies].sort((a, b) => (b.views || 0) - (a.views || 0));
+    filteredSeries = [...filteredSeries].sort((a, b) => (b.views || 0) - (a.views || 0));
   } else if (sortBy === 'title') {
-    filteredMovies = [...filteredMovies].sort((a, b) => a.title.localeCompare(b.title));
+    filteredSeries = [...filteredSeries].sort((a, b) => a.title.localeCompare(b.title));
   }
 
   if (loading) {
@@ -94,17 +86,15 @@ export const Movies = () => {
     <Box minH="100vh" bg={colorMode === 'dark' ? 'black' : 'white'} pt={24} pb={12}>
       <Container maxW="1920px" px={{ base: 4, md: 12 }}>
         <VStack align="stretch" spacing={8}>
-          {/* Header */}
           <Box>
             <Heading size="3xl" mb={2} letterSpacing="heading">
-              Movies
+              Series
             </Heading>
             <Text opacity={0.7} fontSize="lg">
-              Explore our collection of {movies.length} movies
+              Explore our collection of {series.length} series
             </Text>
           </Box>
 
-          {/* Filters */}
           <HStack spacing={4} flexWrap="wrap">
             <Menu>
               <MenuButton as={Button} rightIcon={<FiChevronDown />} variant="outline" size="lg" fontWeight="700">
@@ -119,23 +109,6 @@ export const Movies = () => {
                     textTransform="capitalize"
                   >
                     {genre === 'all' ? 'All Genres' : genre}
-                  </MenuItem>
-                ))}
-              </MenuList>
-            </Menu>
-
-            <Menu>
-              <MenuButton as={Button} rightIcon={<FiChevronDown />} variant="outline" size="lg" fontWeight="700">
-                Year: {selectedYear === 'all' ? 'All' : selectedYear}
-              </MenuButton>
-              <MenuList maxH="400px" overflowY="auto">
-                {years.map((year) => (
-                  <MenuItem
-                    key={year}
-                    onClick={() => setSelectedYear(year)}
-                    fontWeight={selectedYear === year ? '900' : '600'}
-                  >
-                    {year === 'all' ? 'All Years' : year}
                   </MenuItem>
                 ))}
               </MenuList>
@@ -159,22 +132,21 @@ export const Movies = () => {
             </Menu>
           </HStack>
 
-          {/* Grid */}
-          {filteredMovies.length > 0 ? (
+          {filteredSeries.length > 0 ? (
             <SimpleGrid columns={{ base: 2, sm: 3, md: 4, lg: 5, xl: 6 }} spacing={6}>
-              {filteredMovies.map((movie) => (
+              {filteredSeries.map((show) => (
                 <MovieCard
-                  key={movie.id}
-                  movie={movie}
-                  onClick={() => navigate(`/movie/${movie.id}`)}
-                  isInList={watchlist.includes(movie.id)}
+                  key={show.id}
+                  movie={show}
+                  onClick={() => navigate(`/movie/${show.id}`)}
+                  isInList={watchlist.includes(show.id)}
                 />
               ))}
             </SimpleGrid>
           ) : (
             <Center py={20}>
               <Text fontSize="lg" opacity={0.7}>
-                No movies found with current filters
+                No series found
               </Text>
             </Center>
           )}

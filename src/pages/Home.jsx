@@ -11,22 +11,23 @@ import {
   Center,
   Image,
   Badge,
-  Tabs,
-  TabList,
-  Tab,
+  useColorMode,
 } from '@chakra-ui/react';
 import { ref, get } from 'firebase/database';
 import { db } from '../config/firebase';
 import { MovieRow } from '../components/MovieRow';
-import { FiPlay, FiPlus, FiInfo } from 'react-icons/fi';
+import { FiPlay, FiPlus, FiCheck } from 'react-icons/fi';
 import { useNavigate } from 'react-router-dom';
 import { useWatchlist } from '../hooks/useWatchlist';
+import { motion } from 'framer-motion';
+
+const MotionBox = motion(Box);
 
 export const Home = () => {
+  const { colorMode } = useColorMode();
   const [movies, setMovies] = useState([]);
   const [featuredMovie, setFeaturedMovie] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [selectedTab, setSelectedTab] = useState(0);
   const navigate = useNavigate();
   const { watchlist, addToWatchlist, removeFromWatchlist } = useWatchlist();
 
@@ -41,17 +42,12 @@ export const Home = () => {
 
       if (snapshot.exists()) {
         const data = snapshot.val();
-        const moviesArray = Object.keys(data).map((key) => ({
-          id: key,
-          ...data[key],
-        }));
-
+        const moviesArray = Object.keys(data).map((key) => ({ id: key, ...data[key] }));
         setMovies(moviesArray);
-        
-        if (moviesArray.length > 0) {
-          const randomMovie = moviesArray[Math.floor(Math.random() * moviesArray.length)];
-          setFeaturedMovie(randomMovie);
-        }
+
+        // Featured: highest views
+        const sorted = [...moviesArray].sort((a, b) => (b.views || 0) - (a.views || 0));
+        setFeaturedMovie(sorted[0] || moviesArray[0]);
       }
     } catch (error) {
       console.error('Error fetching movies:', error);
@@ -61,22 +57,18 @@ export const Home = () => {
   };
 
   const handleWatchlistToggle = (movie) => {
-    if (watchlist.includes(movie.id)) {
-      removeFromWatchlist(movie.id);
-    } else {
-      addToWatchlist(movie.id);
-    }
+    if (watchlist.includes(movie.id)) removeFromWatchlist(movie.id);
+    else addToWatchlist(movie.id);
   };
 
-  // Categorize content
-  const continueWatching = movies.filter(m => m.progress > 0);
-  const primeOriginals = movies.filter(m => m.isPrimeOriginal);
-  const movies_ = movies.filter(m => m.type === 'movie' || !m.type);
-  const tvShows = movies.filter(m => m.type === 'series');
-  const trending = [...movies].sort((a, b) => (b.views || 0) - (a.views || 0)).slice(0, 10);
-  const recentlyAdded = [...movies].sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt)).slice(0, 10);
+  // Categories
+  const trending = [...movies].sort((a, b) => (b.views || 0) - (a.views || 0)).slice(0, 12);
+  const recentlyAdded = [...movies]
+    .sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0))
+    .slice(0, 12);
+  const moviesList = movies.filter((m) => m.type === 'movie' || !m.type);
+  const seriesList = movies.filter((m) => m.type === 'series');
 
-  // Group by genre
   const moviesByGenre = movies.reduce((acc, movie) => {
     const genre = movie.genre || 'Other';
     if (!acc[genre]) acc[genre] = [];
@@ -86,24 +78,26 @@ export const Home = () => {
 
   if (loading) {
     return (
-      <Center minH="100vh" bg="#0F171E">
-        <Spinner size="xl" thickness="4px" color="#00A8E1" />
+      <Center minH="100vh" bg={colorMode === 'dark' ? 'black' : 'white'}>
+        <Spinner size="xl" thickness="4px" />
       </Center>
     );
   }
 
   return (
-    <Box minH="100vh" bg="#0F171E" pt={16}>
-      {/* Hero Banner - Amazon Prime Style */}
+    <Box minH="100vh" bg={colorMode === 'dark' ? 'black' : 'white'} pt={16}>
+      {/* Hero Section */}
       {featuredMovie && (
-        <Box
+        <MotionBox
           position="relative"
-          h={{ base: '60vh', md: '85vh' }}
+          h={{ base: '70vh', md: '90vh' }}
           w="100%"
           overflow="hidden"
-          mb={0}
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ duration: 0.8 }}
         >
-          {/* Background Image with Gradient */}
+          {/* Background */}
           <Box position="relative" h="100%" w="100%">
             <Image
               src={featuredMovie.thumbnailUrl}
@@ -112,26 +106,30 @@ export const Home = () => {
               h="100%"
               objectFit="cover"
               position="absolute"
-              top={0}
-              left={0}
+              filter="brightness(0.4)"
             />
-            
-            {/* Multi-layer Gradient Overlay */}
+
+            {/* Gradients */}
             <Box
               position="absolute"
-              top={0}
-              left={0}
-              right={0}
-              bottom={0}
-              bgGradient="linear(to-r, #0F171E 0%, rgba(15,23,30,0.8) 40%, transparent 70%)"
+              inset={0}
+              bgGradient={
+                colorMode === 'dark'
+                  ? 'linear(to-r, black 0%, rgba(0,0,0,0.8) 40%, transparent 70%)'
+                  : 'linear(to-r, white 0%, rgba(255,255,255,0.8) 40%, transparent 70%)'
+              }
             />
             <Box
               position="absolute"
               bottom={0}
               left={0}
               right={0}
-              h="300px"
-              bgGradient="linear(to-t, #0F171E 0%, transparent 100%)"
+              h="40%"
+              bgGradient={
+                colorMode === 'dark'
+                  ? 'linear(to-t, black, transparent)'
+                  : 'linear(to-t, white, transparent)'
+              }
             />
           </Box>
 
@@ -139,179 +137,116 @@ export const Home = () => {
           <Container
             maxW="1920px"
             position="absolute"
-            bottom={{ base: '60px', md: '100px' }}
+            bottom={{ base: '80px', md: '120px' }}
             left={0}
             right={0}
             px={{ base: 6, md: 12 }}
           >
-            <VStack align="flex-start" spacing={4} maxW="700px">
-              {/* Prime Original Badge */}
-              {featuredMovie.isPrimeOriginal && (
-                <HStack spacing={2}>
-                  <Box w="80px" h="20px" bg="#00A8E1" display="flex" alignItems="center" justifyContent="center">
-                    <Text fontSize="10px" fontWeight="bold" color="white">prime</Text>
-                  </Box>
-                  <Text fontSize="sm" color="white" fontWeight="bold">ORIGINAL</Text>
+            <MotionBox
+              maxW="700px"
+              initial={{ opacity: 0, y: 40 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.8, delay: 0.3 }}
+            >
+              <VStack align="flex-start" spacing={5}>
+                {/* Badges */}
+                <HStack spacing={3} flexWrap="wrap">
+                  {featuredMovie.year && <Badge fontSize="sm">{featuredMovie.year}</Badge>}
+                  {featuredMovie.rating && <Badge fontSize="sm">{featuredMovie.rating}</Badge>}
+                  {featuredMovie.genre && (
+                    <Badge fontSize="sm" textTransform="capitalize">
+                      {featuredMovie.genre}
+                    </Badge>
+                  )}
                 </HStack>
-              )}
 
-              {/* Title */}
-              <Heading
-                size="3xl"
-                fontWeight="black"
-                lineHeight="1.1"
-                color="white"
-                fontFamily="HeadingFont"
-                textShadow="2px 2px 20px rgba(0,0,0,0.8)"
-              >
-                {featuredMovie.title}
-              </Heading>
+                {/* Title */}
+                <Heading
+                  as="h1"
+                  size="3xl"
+                  fontWeight="black"
+                  lineHeight="1.1"
+                  letterSpacing="heading"
+                  textShadow="0 4px 20px rgba(0,0,0,0.5)"
+                >
+                  {featuredMovie.title}
+                </Heading>
 
-              {/* Meta Info */}
-              <HStack spacing={4} fontSize="sm" color="gray.300">
-                {featuredMovie.year && <Text fontWeight="bold">{featuredMovie.year}</Text>}
-                {featuredMovie.rating && (
-                  <HStack spacing={1}>
-                    <Badge bg="rgba(255,255,255,0.2)" color="white">{featuredMovie.rating}</Badge>
-                  </HStack>
+                {/* Description */}
+                {featuredMovie.description && (
+                  <Text fontSize="lg" noOfLines={3} lineHeight="tall" opacity={0.9}>
+                    {featuredMovie.description}
+                  </Text>
                 )}
-                {featuredMovie.duration && <Text>{featuredMovie.duration}</Text>}
-                {featuredMovie.genre && <Text textTransform="capitalize">{featuredMovie.genre}</Text>}
-              </HStack>
 
-              {/* Description */}
-              <Text
-                fontSize="lg"
-                noOfLines={3}
-                color="gray.200"
-                lineHeight="1.6"
-              >
-                {featuredMovie.description}
-              </Text>
+                {/* Stats */}
+                <HStack spacing={4} fontSize="sm" opacity={0.8}>
+                  {featuredMovie.views > 0 && <Text>{featuredMovie.views.toLocaleString()} views</Text>}
+                  {featuredMovie.likes > 0 && <Text>{featuredMovie.likes.toLocaleString()} likes</Text>}
+                </HStack>
 
-              {/* Action Buttons */}
-              <HStack spacing={4} pt={2}>
-                <Button
-                  leftIcon={<FiPlay />}
-                  size="lg"
-                  bg="white"
-                  color="black"
-                  _hover={{ bg: 'gray.200', transform: 'scale(1.05)' }}
-                  onClick={() => navigate(`/movie/${featuredMovie.id}`)}
-                  fontWeight="bold"
-                  px={8}
-                >
-                  Play Now
-                </Button>
+                {/* Actions */}
+                <HStack spacing={3} pt={2}>
+                  <Button
+                    leftIcon={<FiPlay />}
+                    size="lg"
+                    variant="solid"
+                    onClick={() => navigate(`/movie/${featuredMovie.id}`)}
+                    fontWeight="bold"
+                    px={8}
+                  >
+                    Play
+                  </Button>
 
-                <Button
-                  leftIcon={watchlist.includes(featuredMovie.id) ? <FiInfo /> : <FiPlus />}
-                  size="lg"
-                  variant="outline"
-                  borderColor="white"
-                  color="white"
-                  _hover={{ bg: 'whiteAlpha.200', transform: 'scale(1.05)' }}
-                  onClick={() => handleWatchlistToggle(featuredMovie)}
-                  fontWeight="bold"
-                  px={8}
-                >
-                  {watchlist.includes(featuredMovie.id) ? 'View Details' : 'Add to Watchlist'}
-                </Button>
-              </HStack>
-            </VStack>
+                  <Button
+                    leftIcon={watchlist.includes(featuredMovie.id) ? <FiCheck /> : <FiPlus />}
+                    size="lg"
+                    variant="outline"
+                    onClick={() => handleWatchlistToggle(featuredMovie)}
+                    fontWeight="bold"
+                    px={8}
+                  >
+                    {watchlist.includes(featuredMovie.id) ? 'In Watchlist' : 'Watchlist'}
+                  </Button>
+                </HStack>
+              </VStack>
+            </MotionBox>
           </Container>
-        </Box>
+        </MotionBox>
       )}
 
-      {/* Category Tabs */}
-      <Box bg="#0F171E" py={4} position="sticky" top="60px" zIndex={100} borderBottom="1px solid" borderColor="rgba(255,255,255,0.1)">
-        <Container maxW="1920px" px={{ base: 6, md: 12 }}>
-          <Tabs variant="unstyled" index={selectedTab} onChange={setSelectedTab}>
-            <TabList>
-              {['All', 'Movies', 'TV Shows', 'Sports', 'Live TV'].map((tab, index) => (
-                <Tab
-                  key={tab}
-                  color="gray.400"
-                  _selected={{ color: 'white', borderBottom: '3px solid #00A8E1' }}
-                  _hover={{ color: 'white' }}
-                  fontWeight="600"
-                  fontSize="md"
-                  pb={3}
-                >
-                  {tab}
-                </Tab>
-              ))}
-            </TabList>
-          </Tabs>
-        </Container>
-      </Box>
-
       {/* Content Rows */}
-      <Container maxW="1920px" pb={12} px={{ base: 4, md: 12 }}>
-        {/* Continue Watching */}
-        {continueWatching.length > 0 && (
-          <MovieRow
-            title="Continue Watching"
-            movies={continueWatching}
-            onAddToList={handleWatchlistToggle}
-            myList={watchlist}
-          />
-        )}
-
-        {/* My Watchlist */}
+      <Container maxW="1920px" pb={16} px={{ base: 4, md: 12 }}>
         {watchlist.length > 0 && (
           <MovieRow
             title="My Watchlist"
-            movies={movies.filter(m => watchlist.includes(m.id))}
-            onAddToList={handleWatchlistToggle}
-            myList={watchlist}
+            items={movies.filter((m) => watchlist.includes(m.id))}
+            onItemClick={(m) => navigate(`/movie/${m.id}`)}
           />
         )}
 
-        {/* Prime Originals */}
-        {primeOriginals.length > 0 && (
-          <MovieRow
-            title="Prime Originals"
-            movies={primeOriginals}
-            onAddToList={handleWatchlistToggle}
-            myList={watchlist}
-          />
+        <MovieRow title="Trending Now" items={trending} onItemClick={(m) => navigate(`/movie/${m.id}`)} />
+
+        <MovieRow title="Recently Added" items={recentlyAdded} onItemClick={(m) => navigate(`/movie/${m.id}`)} />
+
+        {moviesList.length > 0 && (
+          <MovieRow title="Movies" items={moviesList.slice(0, 12)} onItemClick={(m) => navigate(`/movie/${m.id}`)} />
         )}
 
-        {/* Trending */}
-        <MovieRow
-          title="Trending Now"
-          movies={trending}
-          onAddToList={handleWatchlistToggle}
-          myList={watchlist}
-        />
+        {seriesList.length > 0 && (
+          <MovieRow title="Series" items={seriesList.slice(0, 12)} onItemClick={(m) => navigate(`/movie/${m.id}`)} />
+        )}
 
-        {/* Recently Added */}
-        <MovieRow
-          title="Recently Added"
-          movies={recentlyAdded}
-          onAddToList={handleWatchlistToggle}
-          myList={watchlist}
-        />
-
-        {/* Genre Rows */}
-        {Object.keys(moviesByGenre).map((genre) => (
-          <MovieRow
-            key={genre}
-            title={genre.charAt(0).toUpperCase() + genre.slice(1)}
-            movies={moviesByGenre[genre]}
-            onAddToList={handleWatchlistToggle}
-            myList={watchlist}
-          />
-        ))}
-
-        {/* Recommended for You */}
-        <MovieRow
-          title="Recommended for You"
-          movies={movies.slice(0, 10)}
-          onAddToList={handleWatchlistToggle}
-          myList={watchlist}
-        />
+        {Object.keys(moviesByGenre)
+          .slice(0, 5)
+          .map((genre) => (
+            <MovieRow
+              key={genre}
+              title={genre.charAt(0).toUpperCase() + genre.slice(1)}
+              items={moviesByGenre[genre].slice(0, 12)}
+              onItemClick={(m) => navigate(`/movie/${m.id}`)}
+            />
+          ))}
       </Container>
     </Box>
   );

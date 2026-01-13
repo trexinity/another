@@ -2,88 +2,158 @@ import { extendTheme } from '@chakra-ui/react';
 
 const theme = extendTheme({
   config: {
-    initialColorMode: 'dark',
-    useSystemColorMode: false,
+    initialColorMode: 'system',
+    useSystemColorMode: true,
   },
+
   fonts: {
     logo: `'CustomLogo', sans-serif`,
-    heading: `'HeadingFont', 'Ember', -apple-system, sans-serif`,
-    body: `'Amazon Ember', -apple-system, BlinkMacSystemFont, sans-serif`,
+    heading: `'HeadingFont', -apple-system, BlinkMacSystemFont, sans-serif`,
+    body: `-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif`,
   },
-  colors: {
-    prime: {
-      blue: '#00A8E1',
-      gold: '#FFB800',
-      darkBg: '#0F171E',
-      cardBg: '#1A242F',
-      hover: '#232F3E',
-    },
-    brand: {
-      50: '#f7fafc',
-      100: '#edf2f7',
-      200: '#e2e8f0',
-      300: '#cbd5e0',
-      400: '#a0aec0',
-      500: '#718096',
-      600: '#4a5568',
-      700: '#2d3748',
-      800: '#1a202c',
-      900: '#171923',
-    },
+
+  // Perfect letter spacing & line heights
+  letterSpacings: {
+    logo: '-0.02em',
+    heading: '-0.015em',
+    body: 'normal',
   },
+
+  lineHeights: {
+    logo: 1,
+    heading: 1.2,
+    body: 1.6,
+  },
+
   styles: {
-    global: (props) => ({
-      body: {
-        bg: props.colorMode === 'dark' ? '#0F171E' : 'white',
-        color: props.colorMode === 'dark' ? 'white' : 'black',
-        overflowX: 'hidden',
-      },
-      '*::-webkit-scrollbar': {
-        width: '8px',
-        height: '8px',
-      },
-      '*::-webkit-scrollbar-track': {
-        bg: 'transparent',
-      },
-      '*::-webkit-scrollbar-thumb': {
-        bg: '#232F3E',
-        borderRadius: '10px',
-      },
-      '*::-webkit-scrollbar-thumb:hover': {
-        bg: '#37475A',
-      },
-    }),
+    global: (props) => {
+      const isDark = props.colorMode === 'dark';
+      return {
+        body: {
+          bg: isDark ? '#000' : '#fff',
+          color: isDark ? '#fff' : '#000',
+          overflowX: 'hidden',
+        },
+        'h1, h2, h3, h4, h5, h6': {
+          letterSpacing: 'heading',
+          lineHeight: 'heading',
+        },
+        a: { color: 'inherit', textDecoration: 'none' },
+        '::selection': { bg: isDark ? 'whiteAlpha.300' : 'blackAlpha.200' },
+        '*:focus-visible': {
+          outline: `2px solid ${isDark ? 'rgba(255,255,255,0.8)' : 'rgba(0,0,0,0.8)'}`,
+          outlineOffset: '3px',
+        },
+      };
+    },
   },
+
+  colors: {
+    brand: {
+      black: '#000',
+      white: '#fff',
+    },
+  },
+
   components: {
     Button: {
       baseStyle: {
-        fontWeight: '600',
-        borderRadius: '4px',
-        transition: 'all 0.2s',
+        fontWeight: '700',
+        borderRadius: '8px',
+        transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
+        letterSpacing: '0.3px',
       },
       variants: {
-        prime: {
-          bg: '#00A8E1',
-          color: 'white',
+        solid: (props) => ({
+          bg: props.colorMode === 'dark' ? 'white' : 'black',
+          color: props.colorMode === 'dark' ? 'black' : 'white',
           _hover: {
-            bg: '#0095C8',
-            transform: 'scale(1.02)',
+            transform: 'translateY(-2px)',
+            boxShadow: props.colorMode === 'dark' ? '0 8px 24px rgba(255,255,255,0.25)' : '0 8px 24px rgba(0,0,0,0.25)',
           },
-        },
-        primeGold: {
-          bg: '#FFB800',
-          color: '#0F171E',
+          _active: { transform: 'translateY(0)' },
+        }),
+        ghost: (props) => ({
+          color: props.colorMode === 'dark' ? 'whiteAlpha.800' : 'blackAlpha.800',
           _hover: {
-            bg: '#E6A600',
-            transform: 'scale(1.02)',
+            bg: props.colorMode === 'dark' ? 'whiteAlpha.100' : 'blackAlpha.100',
           },
-        },
-        ghost: {
+        }),
+        outline: (props) => ({
+          borderColor: props.colorMode === 'dark' ? 'whiteAlpha.400' : 'blackAlpha.400',
+          color: props.colorMode === 'dark' ? 'white' : 'black',
           _hover: {
-            bg: 'whiteAlpha.100',
+            bg: props.colorMode === 'dark' ? 'whiteAlpha.100' : 'blackAlpha.100',
+            borderColor: props.colorMode === 'dark' ? 'white' : 'black',
           },
-        },
+        }),
       },
+    },
+
+    Heading: {
+      baseStyle: {
+        fontFamily: 'heading',
+        letterSpacing: 'heading',
+        lineHeight: 'heading',
+        fontWeight: '900',
+      },
+    },
+
+    Text: {
+      baseStyle: {
+        letterSpacing: 'body',
+        lineHeight: 'body',
+      },
+    },
+
+    Input: {
+      variants: {
+        filled: (props) => ({
+          field: {
+            bg: props.colorMode === 'dark' ? 'whiteAlpha.100' : 'blackAlpha.50',
+            borderWidth: '1px',
+            borderColor: props.colorMode === 'dark' ? 'whiteAlpha.200' : 'blackAlpha.200',
+            _hover: {
+              bg: props.colorMode === 'dark' ? 'whiteAlpha.150' : 'blackAlpha.100',
+              borderColor: props.colorMode === 'dark' ? 'whiteAlpha.400' : 'blackAlpha.400',
+            },
+            _focus: {
+              bg: props.colorMode === 'dark' ? 'whiteAlpha.100' : 'blackAlpha.50',
+              borderColor: props.colorMode === 'dark' ? 'white' : 'black',
+            },
+          },
+        }),
+      },
+      defaultProps: { variant: 'filled' },
+    },
+
+    Menu: {
+      baseStyle: (props) => ({
+        list: {
+          bg: props.colorMode === 'dark' ? 'rgba(0,0,0,0.95)' : 'rgba(255,255,255,0.95)',
+          backdropFilter: 'blur(20px)',
+          borderColor: props.colorMode === 'dark' ? 'whiteAlpha.200' : 'blackAlpha.200',
+          boxShadow: '0 20px 60px rgba(0,0,0,0.3)',
+        },
+        item: {
+          bg: 'transparent',
+          _hover: { bg: props.colorMode === 'dark' ? 'whiteAlpha.100' : 'blackAlpha.100' },
+          _focus: { bg: props.colorMode === 'dark' ? 'whiteAlpha.100' : 'blackAlpha.100' },
+        },
+      }),
+    },
+
+    Modal: {
+      baseStyle: (props) => ({
+        dialog: {
+          bg: props.colorMode === 'dark' ? '#000' : '#fff',
+          borderWidth: '1px',
+          borderColor: props.colorMode === 'dark' ? 'whiteAlpha.200' : 'blackAlpha.200',
+        },
+        overlay: {
+          backdropFilter: 'blur(8px)',
+        },
+      }),
     },
   },
 });

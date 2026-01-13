@@ -1,52 +1,73 @@
-import { useState, useEffect } from 'react';
+import { createContext, useContext, useState, useEffect } from 'react';
 import { useAuth } from './useAuth';
 
+const WatchlistContext = createContext();
+
 export const useWatchlist = () => {
+  const context = useContext(WatchlistContext);
+  if (!context) {
+    throw new Error('useWatchlist must be used within WatchlistProvider');
+  }
+  return context;
+};
+
+export const WatchlistProvider = ({ children }) => {
   const { user } = useAuth();
   const [watchlist, setWatchlist] = useState([]);
 
+  // Load watchlist from localStorage on mount
   useEffect(() => {
-    if (user) {
-      loadWatchlist();
-    } else {
+    if (!user) {
       setWatchlist([]);
+      return;
+    }
+
+    const storageKey = `watchlist_${user.uid}`;
+    const saved = localStorage.getItem(storageKey);
+    
+    if (saved) {
+      try {
+        setWatchlist(JSON.parse(saved));
+      } catch (error) {
+        console.error('Failed to parse watchlist:', error);
+        setWatchlist([]);
+      }
     }
   }, [user]);
 
-  const loadWatchlist = () => {
-    const saved = localStorage.getItem(`watchlist_${user.uid}`);
-    if (saved) {
-      setWatchlist(JSON.parse(saved));
-    }
-  };
+  // Save watchlist to localStorage whenever it changes
+  useEffect(() => {
+    if (!user) return;
 
-  const saveWatchlist = (list) => {
-    if (user) {
-      localStorage.setItem(`watchlist_${user.uid}`, JSON.stringify(list));
-      setWatchlist(list);
-    }
-  };
+    const storageKey = `watchlist_${user.uid}`;
+    localStorage.setItem(storageKey, JSON.stringify(watchlist));
+  }, [watchlist, user]);
 
   const addToWatchlist = (movieId) => {
     if (!watchlist.includes(movieId)) {
-      const newList = [...watchlist, movieId];
-      saveWatchlist(newList);
+      setWatchlist((prev) => [...prev, movieId]);
     }
   };
 
   const removeFromWatchlist = (movieId) => {
-    const newList = watchlist.filter((id) => id !== movieId);
-    saveWatchlist(newList);
+    setWatchlist((prev) => prev.filter((id) => id !== movieId));
   };
 
   const isInWatchlist = (movieId) => {
     return watchlist.includes(movieId);
   };
 
-  return {
+  const clearWatchlist = () => {
+    setWatchlist([]);
+  };
+
+  const value = {
     watchlist,
     addToWatchlist,
     removeFromWatchlist,
     isInWatchlist,
+    clearWatchlist,
   };
+
+  return <WatchlistContext.Provider value={value}>{children}</WatchlistContext.Provider>;
 };

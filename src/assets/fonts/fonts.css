@@ -9,7 +9,7 @@
 /* Heading Font - journey */
 @font-face {
   font-family: 'HeadingFont';
-  src: url('./journey.otf') format('opentype');
+  src: url('./journey.ttf') format('truetype');
   font-weight: normal;
   font-style: normal;
 }

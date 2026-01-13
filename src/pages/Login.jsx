@@ -13,17 +13,23 @@ import {
   InputRightElement,
   IconButton,
   useColorModeValue,
+  Divider,
+  HStack,
 } from '@chakra-ui/react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
 import { FiEye, FiEyeOff } from 'react-icons/fi';
+import { FcGoogle } from 'react-icons/fc';
 
 export const Login = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
-  const { login } = useAuth();
+  const [googleLoading, setGoogleLoading] = useState(false);
+
+  const { login, loginWithGoogle } = useAuth();
   const navigate = useNavigate();
   const toast = useToast();
 
@@ -38,21 +44,31 @@ export const Login = () => {
 
     try {
       await login(email, password);
-      toast({
-        title: 'Welcome back!',
-        status: 'success',
-        duration: 2000,
-      });
+      toast({ title: 'Welcome back!', status: 'success', duration: 1800, isClosable: true });
+      navigate('/');
+    } catch (error) {
+      toast({ title: 'Login failed', description: error.message, status: 'error', duration: 4000, isClosable: true });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleGoogle = async () => {
+    setGoogleLoading(true);
+    try {
+      await loginWithGoogle();
+      toast({ title: 'Signed in with Google', status: 'success', duration: 1800, isClosable: true });
       navigate('/');
     } catch (error) {
       toast({
-        title: 'Login failed',
+        title: 'Google sign-in failed',
         description: error.message,
         status: 'error',
-        duration: 4000,
+        duration: 4500,
+        isClosable: true,
       });
     } finally {
-      setLoading(false);
+      setGoogleLoading(false);
     }
   };
 
@@ -80,7 +96,7 @@ export const Login = () => {
       }}
     >
       <Box
-        maxW="400px"
+        maxW="420px"
         w="full"
         p={8}
         bg={cardBg}
@@ -93,17 +109,34 @@ export const Login = () => {
       >
         <VStack spacing={6} align="stretch">
           <Box textAlign="center">
-            <Heading
-              size="2xl"
-              mb={2}
-              fontFamily="CustomLogo"
-            >
-              Welcome Back
+            <Heading size="2xl" mb={2} fontFamily="logo">
+              Sign in
             </Heading>
             <Text color="gray.500" fontSize="sm">
-              Sign in to continue streaming
+              Continue to another
             </Text>
           </Box>
+
+          <Button
+            leftIcon={<FcGoogle />}
+            onClick={handleGoogle}
+            isLoading={googleLoading}
+            loadingText="Connecting..."
+            size="lg"
+            w="full"
+            variant="outline"
+            borderColor={borderColor}
+          >
+            Continue with Google
+          </Button>
+
+          <HStack>
+            <Divider borderColor={borderColor} />
+            <Text fontSize="sm" color="gray.500" whiteSpace="nowrap">
+              or
+            </Text>
+            <Divider borderColor={borderColor} />
+          </HStack>
 
           <form onSubmit={handleSubmit}>
             <VStack spacing={4}>
@@ -145,13 +178,7 @@ export const Login = () => {
                 </InputGroup>
               </FormControl>
 
-              <Button
-                type="submit"
-                size="lg"
-                w="full"
-                isLoading={loading}
-                loadingText="Signing in..."
-              >
+              <Button type="submit" size="lg" w="full" isLoading={loading} loadingText="Signing in...">
                 Sign In
               </Button>
             </VStack>
@@ -159,14 +186,10 @@ export const Login = () => {
 
           <Box textAlign="center">
             <Text color="gray.500" fontSize="sm">
-              Don't have an account?{' '}
+              Don’t have an account?{' '}
               <Link to="/signup">
-                <Text
-                  as="span"
-                  fontWeight="bold"
-                  _hover={{ textDecoration: 'underline' }}
-                >
-                  Sign Up
+                <Text as="span" fontWeight="bold" _hover={{ textDecoration: 'underline' }}>
+                  Create one
                 </Text>
               </Link>
             </Text>

@@ -1,64 +1,115 @@
-import { Box, Container, HStack, VStack, Text, Link, SimpleGrid } from '@chakra-ui/react';
-import { FaFacebook, FaTwitter, FaInstagram, FaYoutube } from 'react-icons/fa';
+import {
+  Box,
+  Container,
+  SimpleGrid,
+  Stack,
+  Text,
+  Link,
+  HStack,
+  Divider,
+  useColorMode,
+  IconButton,
+} from '@chakra-ui/react';
+import { FiGithub, FiTwitter, FiInstagram, FiMail } from 'react-icons/fi';
 
 export const Footer = () => {
+  const { colorMode } = useColorMode();
+
+  const currentYear = new Date().getFullYear();
+
   return (
-    <Box bg="brand.black" py={12} mt={20} borderTop="1px solid" borderColor="gray.800">
-      <Container maxW="1400px">
-        <SimpleGrid columns={{ base: 1, md: 4 }} spacing={8} mb={8}>
-          <VStack align="start" spacing={3}>
-            <Text fontWeight="bold" fontSize="lg" color="brand.primary">
-              ANOTHER
+    <Box
+      as="footer"
+      borderTop="1px solid"
+      borderColor={colorMode === 'dark' ? 'whiteAlpha.200' : 'blackAlpha.200'}
+      mt={20}
+    >
+      <Container maxW="1920px" py={12} px={{ base: 4, md: 12 }}>
+        <SimpleGrid columns={{ base: 1, md: 2, lg: 4 }} spacing={8}>
+          {/* Brand */}
+          <Stack spacing={4}>
+            <Text fontSize="2xl" fontWeight="black" fontFamily="logo" letterSpacing="logo">
+              another
             </Text>
-            <Text fontSize="sm" color="gray.400">
-              Your premium streaming platform
+            <Text fontSize="sm" opacity={0.7}>
+              Your premium streaming destination for movies and series.
             </Text>
-            <HStack spacing={4} mt={4}>
-              <Link href="#" color="gray.400" _hover={{ color: 'white' }}>
-                <FaFacebook size={24} />
-              </Link>
-              <Link href="#" color="gray.400" _hover={{ color: 'white' }}>
-                <FaTwitter size={24} />
-              </Link>
-              <Link href="#" color="gray.400" _hover={{ color: 'white' }}>
-                <FaInstagram size={24} />
-              </Link>
-              <Link href="#" color="gray.400" _hover={{ color: 'white' }}>
-                <FaYoutube size={24} />
-              </Link>
+            <HStack spacing={2}>
+              <IconButton icon={<FiGithub />} variant="ghost" size="sm" aria-label="GitHub" />
+              <IconButton icon={<FiTwitter />} variant="ghost" size="sm" aria-label="Twitter" />
+              <IconButton icon={<FiInstagram />} variant="ghost" size="sm" aria-label="Instagram" />
+              <IconButton icon={<FiMail />} variant="ghost" size="sm" aria-label="Email" />
             </HStack>
-          </VStack>
+          </Stack>
 
-          <VStack align="start" spacing={2}>
-            <Text fontWeight="bold" mb={2}>Company</Text>
-            <Link fontSize="sm" color="gray.400" _hover={{ color: 'white' }}>About Us</Link>
-            <Link fontSize="sm" color="gray.400" _hover={{ color: 'white' }}>Careers</Link>
-            <Link fontSize="sm" color="gray.400" _hover={{ color: 'white' }}>Press</Link>
-            <Link fontSize="sm" color="gray.400" _hover={{ color: 'white' }}>Blog</Link>
-          </VStack>
+          {/* Quick Links */}
+          <Stack spacing={3}>
+            <Text fontWeight="900" fontSize="sm" textTransform="uppercase" opacity={0.7}>
+              Quick Links
+            </Text>
+            <Link fontSize="sm" _hover={{ opacity: 0.7 }}>
+              Home
+            </Link>
+            <Link fontSize="sm" _hover={{ opacity: 0.7 }}>
+              Movies
+            </Link>
+            <Link fontSize="sm" _hover={{ opacity: 0.7 }}>
+              Series
+            </Link>
+            <Link fontSize="sm" _hover={{ opacity: 0.7 }}>
+              My Watchlist
+            </Link>
+          </Stack>
 
-          <VStack align="start" spacing={2}>
-            <Text fontWeight="bold" mb={2}>Support</Text>
-            <Link fontSize="sm" color="gray.400" _hover={{ color: 'white' }}>Help Center</Link>
-            <Link fontSize="sm" color="gray.400" _hover={{ color: 'white' }}>Contact Us</Link>
-            <Link fontSize="sm" color="gray.400" _hover={{ color: 'white' }}>FAQ</Link>
-            <Link fontSize="sm" color="gray.400" _hover={{ color: 'white' }}>Account</Link>
-          </VStack>
+          {/* Legal */}
+          <Stack spacing={3}>
+            <Text fontWeight="900" fontSize="sm" textTransform="uppercase" opacity={0.7}>
+              Legal
+            </Text>
+            <Link fontSize="sm" _hover={{ opacity: 0.7 }}>
+              Privacy Policy
+            </Link>
+            <Link fontSize="sm" _hover={{ opacity: 0.7 }}>
+              Terms of Service
+            </Link>
+            <Link fontSize="sm" _hover={{ opacity: 0.7 }}>
+              Cookie Policy
+            </Link>
+            <Link fontSize="sm" _hover={{ opacity: 0.7 }}>
+              DMCA
+            </Link>
+          </Stack>
 
-          <VStack align="start" spacing={2}>
-            <Text fontWeight="bold" mb={2}>Legal</Text>
-            <Link fontSize="sm" color="gray.400" _hover={{ color: 'white' }}>Privacy Policy</Link>
-            <Link fontSize="sm" color="gray.400" _hover={{ color: 'white' }}>Terms of Service</Link>
-            <Link fontSize="sm" color="gray.400" _hover={{ color: 'white' }}>Cookie Policy</Link>
-            <Link fontSize="sm" color="gray.400" _hover={{ color: 'white' }}>Legal Notices</Link>
-          </VStack>
+          {/* Support */}
+          <Stack spacing={3}>
+            <Text fontWeight="900" fontSize="sm" textTransform="uppercase" opacity={0.7}>
+              Support
+            </Text>
+            <Link fontSize="sm" _hover={{ opacity: 0.7 }}>
+              Help Center
+            </Link>
+            <Link fontSize="sm" _hover={{ opacity: 0.7 }}>
+              Contact Us
+            </Link>
+            <Link fontSize="sm" _hover={{ opacity: 0.7 }}>
+              FAQ
+            </Link>
+            <Link fontSize="sm" _hover={{ opacity: 0.7 }}>
+              Feedback
+            </Link>
+          </Stack>
         </SimpleGrid>
 
-        <Box borderTop="1px solid" borderColor="gray.800" pt={6}>
-          <Text textAlign="center" fontSize="sm" color="gray.500">
-            © 2026 ANOTHER. All rights reserved.
+        <Divider my={8} borderColor={colorMode === 'dark' ? 'whiteAlpha.200' : 'blackAlpha.200'} />
+
+        <HStack justify="space-between" flexWrap="wrap">
+          <Text fontSize="sm" opacity={0.7}>
+            © {currentYear} another. All rights reserved.
           </Text>
-        </Box>
+          <Text fontSize="sm" opacity={0.7}>
+            Made with ❤️ for streaming enthusiasts
+          </Text>
+        </HStack>
       </Container>
     </Box>
   );

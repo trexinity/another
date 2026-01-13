@@ -1,51 +1,148 @@
-import { Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import { ChakraProvider } from '@chakra-ui/react';
+import { AuthProvider, useAuth } from './hooks/useAuth';
+import { WatchlistProvider } from './hooks/useWatchlist';
+import theme from './theme';
+
 import { Navbar } from './components/Navbar';
-import { Login } from './pages/Login';
-import { Signup } from './pages/Signup';
+import { Footer } from './components/Footer';
 import { Home } from './pages/Home';
 import { Movies } from './pages/Movies';
-import { TvShows } from './pages/TvShows';
-import { Browse } from './pages/Browse';
-import { Search } from './pages/Search';
-import { MyList } from './pages/MyList';
-import { Admin } from './pages/Admin';
+import { Series } from './pages/Series';
 import { MovieDetail } from './pages/MovieDetail';
-import { AuthProvider } from './hooks/useAuth';
-import { useAuth } from './hooks/useAuth';
-import { Box } from '@chakra-ui/react';
+import { Login } from './pages/Login';
+import { Signup } from './pages/Signup';
+import { Admin } from './pages/Admin';
+import { Settings } from './pages/Settings';
+import { MyList } from './pages/MyList';
+import { Search } from './pages/Search';
 
 const ProtectedRoute = ({ children }) => {
-  const { user } = useAuth();
-  return user ? children : <Navigate to="/login" />;
+  const { user, loading } = useAuth();
+  
+  if (loading) return null;
+  if (!user) return <Navigate to="/login" />;
+  
+  return children;
+};
+
+const PublicRoute = ({ children }) => {
+  const { user, loading } = useAuth();
+  
+  if (loading) return null;
+  if (user) return <Navigate to="/" />;
+  
+  return children;
 };
 
 function AppContent() {
+  const { user } = useAuth();
+
   return (
-    <Box minH="100vh">
-      <Navbar />
+    <Router>
+      {user && <Navbar />}
       <Routes>
-        <Route path="/login" element={<Login />} />
-        <Route path="/signup" element={<Signup />} />
-        <Route path="/" element={<ProtectedRoute><Home /></ProtectedRoute>} />
-        <Route path="/movies" element={<ProtectedRoute><Movies /></ProtectedRoute>} />
-        <Route path="/tv-shows" element={<ProtectedRoute><TvShows /></ProtectedRoute>} />
-        <Route path="/sports" element={<ProtectedRoute><Home /></ProtectedRoute>} />
-        <Route path="/live-tv" element={<ProtectedRoute><Home /></ProtectedRoute>} />
-        <Route path="/browse" element={<ProtectedRoute><Browse /></ProtectedRoute>} />
-        <Route path="/search" element={<ProtectedRoute><Search /></ProtectedRoute>} />
-        <Route path="/my-list" element={<ProtectedRoute><MyList /></ProtectedRoute>} />
-        <Route path="/admin" element={<ProtectedRoute><Admin /></ProtectedRoute>} />
-        <Route path="/movie/:id" element={<ProtectedRoute><MovieDetail /></ProtectedRoute>} />
+        {/* Public Routes */}
+        <Route
+          path="/login"
+          element={
+            <PublicRoute>
+              <Login />
+            </PublicRoute>
+          }
+        />
+        <Route
+          path="/signup"
+          element={
+            <PublicRoute>
+              <Signup />
+            </PublicRoute>
+          }
+        />
+
+        {/* Protected Routes */}
+        <Route
+          path="/"
+          element={
+            <ProtectedRoute>
+              <Home />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/movies"
+          element={
+            <ProtectedRoute>
+              <Movies />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/series"
+          element={
+            <ProtectedRoute>
+              <Series />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/movie/:id"
+          element={
+            <ProtectedRoute>
+              <MovieDetail />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/my-list"
+          element={
+            <ProtectedRoute>
+              <MyList />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/search"
+          element={
+            <ProtectedRoute>
+              <Search />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/settings"
+          element={
+            <ProtectedRoute>
+              <Settings />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/admin"
+          element={
+            <ProtectedRoute>
+              <Admin />
+            </ProtectedRoute>
+          }
+        />
+
+        {/* Catch All */}
+        <Route path="*" element={<Navigate to="/" />} />
       </Routes>
-    </Box>
+      {user && <Footer />}
+    </Router>
   );
 }
 
 function App() {
   return (
-    <AuthProvider>
-      <AppContent />
-    </AuthProvider>
+    <ChakraProvider theme={theme}>
+      <AuthProvider>
+        <WatchlistProvider>
+          <AppContent />
+        </WatchlistProvider>
+      </AuthProvider>
+    </ChakraProvider>
   );
 }
 

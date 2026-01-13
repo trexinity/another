@@ -13,18 +13,24 @@ import {
   InputRightElement,
   IconButton,
   useColorModeValue,
+  Divider,
+  HStack,
 } from '@chakra-ui/react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
 import { FiEye, FiEyeOff } from 'react-icons/fi';
+import { FcGoogle } from 'react-icons/fc';
 
 export const Signup = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
+
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
-  const { signup } = useAuth();
+  const [googleLoading, setGoogleLoading] = useState(false);
+
+  const { signup, loginWithGoogle } = useAuth();
   const navigate = useNavigate();
   const toast = useToast();
 
@@ -37,44 +43,48 @@ export const Signup = () => {
     e.preventDefault();
 
     if (password !== confirmPassword) {
-      toast({
-        title: 'Passwords do not match',
-        status: 'error',
-        duration: 3000,
-      });
+      toast({ title: 'Passwords do not match', status: 'error', duration: 3000, isClosable: true });
       return;
     }
-
     if (password.length < 6) {
       toast({
         title: 'Password too short',
         description: 'Password must be at least 6 characters',
         status: 'error',
         duration: 3000,
+        isClosable: true,
       });
       return;
     }
 
     setLoading(true);
-
     try {
       await signup(email, password);
-      toast({
-        title: 'Account created!',
-        description: 'Welcome to StreamHub',
-        status: 'success',
-        duration: 2000,
-      });
+      toast({ title: 'Account created!', description: 'Welcome to another', status: 'success', duration: 2000, isClosable: true });
+      navigate('/');
+    } catch (error) {
+      toast({ title: 'Signup failed', description: error.message, status: 'error', duration: 4000, isClosable: true });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleGoogle = async () => {
+    setGoogleLoading(true);
+    try {
+      await loginWithGoogle();
+      toast({ title: 'Signed up with Google', status: 'success', duration: 1800, isClosable: true });
       navigate('/');
     } catch (error) {
       toast({
-        title: 'Signup failed',
+        title: 'Google sign-up failed',
         description: error.message,
         status: 'error',
-        duration: 4000,
+        duration: 4500,
+        isClosable: true,
       });
     } finally {
-      setLoading(false);
+      setGoogleLoading(false);
     }
   };
 
@@ -102,7 +112,7 @@ export const Signup = () => {
       }}
     >
       <Box
-        maxW="400px"
+        maxW="420px"
         w="full"
         p={8}
         bg={cardBg}
@@ -115,17 +125,34 @@ export const Signup = () => {
       >
         <VStack spacing={6} align="stretch">
           <Box textAlign="center">
-            <Heading
-              size="2xl"
-              mb={2}
-              fontFamily="CustomLogo"
-            >
-              Join StreamHub
+            <Heading size="2xl" mb={2} fontFamily="logo">
+              Create account
             </Heading>
             <Text color="gray.500" fontSize="sm">
-              Create your account to start streaming
+              Join another to start streaming
             </Text>
           </Box>
+
+          <Button
+            leftIcon={<FcGoogle />}
+            onClick={handleGoogle}
+            isLoading={googleLoading}
+            loadingText="Connecting..."
+            size="lg"
+            w="full"
+            variant="outline"
+            borderColor={borderColor}
+          >
+            Continue with Google
+          </Button>
+
+          <HStack>
+            <Divider borderColor={borderColor} />
+            <Text fontSize="sm" color="gray.500" whiteSpace="nowrap">
+              or
+            </Text>
+            <Divider borderColor={borderColor} />
+          </HStack>
 
           <form onSubmit={handleSubmit}>
             <VStack spacing={4}>
@@ -181,13 +208,7 @@ export const Signup = () => {
                 />
               </FormControl>
 
-              <Button
-                type="submit"
-                size="lg"
-                w="full"
-                isLoading={loading}
-                loadingText="Creating account..."
-              >
+              <Button type="submit" size="lg" w="full" isLoading={loading} loadingText="Creating account...">
                 Sign Up
               </Button>
             </VStack>
@@ -197,12 +218,8 @@ export const Signup = () => {
             <Text color="gray.500" fontSize="sm">
               Already have an account?{' '}
               <Link to="/login">
-                <Text
-                  as="span"
-                  fontWeight="bold"
-                  _hover={{ textDecoration: 'underline' }}
-                >
-                  Sign In
+                <Text as="span" fontWeight="bold" _hover={{ textDecoration: 'underline' }}>
+                  Sign in
                 </Text>
               </Link>
             </Text>

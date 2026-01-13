@@ -1,21 +1,19 @@
-import { 
-  Box, 
-  Flex, 
-  HStack, 
-  Button, 
-  Menu, 
-  MenuButton, 
-  MenuList, 
-  MenuItem, 
+import {
+  Box,
+  Flex,
+  HStack,
+  Button,
+  Menu,
+  MenuButton,
+  MenuList,
+  MenuItem,
+  MenuDivider,
   Avatar,
   Text,
   IconButton,
-  useColorMode,
-  useColorModeValue,
   Input,
   InputGroup,
   InputLeftElement,
-  Badge,
   Drawer,
   DrawerBody,
   DrawerHeader,
@@ -24,36 +22,58 @@ import {
   DrawerCloseButton,
   VStack,
   useDisclosure,
+  useColorMode,
+  Modal,
+  ModalOverlay,
+  ModalContent,
+  ModalHeader,
+  ModalBody,
+  ModalCloseButton,
+  SimpleGrid,
+  Badge,
 } from '@chakra-ui/react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
-import { 
-  FiSearch, 
-  FiMenu, 
-  FiHome, 
-  FiFilm, 
-  FiTv, 
-  FiActivity,
-  FiRadio,
-  FiShoppingBag,
-} from 'react-icons/fi';
-import { useState, useEffect } from 'react';
+import { isAdmin } from '../config/admins';
+import { FiSearch, FiMenu, FiHome, FiFilm, FiTv, FiMoon, FiSun, FiMonitor, FiSettings, FiGrid } from 'react-icons/fi';
+import { useEffect, useMemo, useState } from 'react';
+
+const GENRES = ['Action', 'Comedy', 'Drama', 'Horror', 'Romance', 'Sci-Fi', 'Thriller', 'Documentary', 'Animation', 'Crime', 'Fantasy', 'Mystery'];
+const LANGUAGES = ['English', 'Hindi', 'Spanish', 'French', 'German', 'Japanese', 'Korean', 'Tamil', 'Telugu', 'Malayalam'];
 
 export const Navbar = () => {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
+  const { colorMode, setColorMode } = useColorMode();
+
   const [scrolled, setScrolled] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const { isOpen, onOpen, onClose } = useDisclosure();
+  const genreModal = useDisclosure();
+  const languageModal = useDisclosure();
+
+  const [selectedGenres, setSelectedGenres] = useState([]);
+  const [selectedLanguages, setSelectedLanguages] = useState([]);
+
+  const userIsAdmin = user?.email && isAdmin(user.email);
 
   useEffect(() => {
-    const handleScroll = () => {
-      setScrolled(window.scrollY > 50);
-    };
+    const handleScroll = () => setScrolled(window.scrollY > 40);
     window.addEventListener('scroll', handleScroll);
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
+
+  const navItems = useMemo(
+    () => [
+      { path: '/', icon: FiHome, label: 'Home' },
+      { path: '/movies', icon: FiFilm, label: 'Movies' },
+      { path: '/series', icon: FiTv, label: 'Series' },
+    ],
+    []
+  );
+
+  const isActive = (path) => location.pathname === path;
 
   const handleLogout = async () => {
     try {
@@ -66,70 +86,74 @@ export const Navbar = () => {
 
   const handleSearch = (e) => {
     e.preventDefault();
-    if (searchQuery.trim()) {
-      navigate(`/search?q=${encodeURIComponent(searchQuery)}`);
-      setSearchQuery('');
-    }
+    const q = searchQuery.trim();
+    if (!q) return;
+    navigate(`/search?q=${encodeURIComponent(q)}`);
+    setSearchQuery('');
   };
 
-  const isActive = (path) => location.pathname === path;
+  const toggleGenre = (genre) => {
+    setSelectedGenres((prev) =>
+      prev.includes(genre) ? prev.filter((g) => g !== genre) : [...prev, genre]
+    );
+  };
 
-  const navItems = [
-    { path: '/', icon: FiHome, label: 'Home' },
-    { path: '/movies', icon: FiFilm, label: 'Movies' },
-    { path: '/tv-shows', icon: FiTv, label: 'TV Shows' },
-    { path: '/sports', icon: FiActivity, label: 'Sports' },
-    { path: '/live-tv', icon: FiRadio, label: 'Live TV' },
-  ];
+  const toggleLanguage = (lang) => {
+    setSelectedLanguages((prev) =>
+      prev.includes(lang) ? prev.filter((l) => l !== lang) : [...prev, lang]
+    );
+  };
 
   return (
-    <Box
-      as="nav"
-      position="fixed"
-      top={0}
-      left={0}
-      right={0}
-      zIndex={1000}
-      bg={scrolled ? 'rgba(15, 23, 30, 0.98)' : 'transparent'}
-      backdropFilter={scrolled ? 'blur(20px)' : 'none'}
-      transition="all 0.3s ease"
-      boxShadow={scrolled ? '0 4px 20px rgba(0,0,0,0.5)' : 'none'}
-    >
-      <Flex
-        maxW="1920px"
-        mx="auto"
-        px={{ base: 4, md: 6 }}
-        py={3}
-        align="center"
-        justify="space-between"
+    <>
+      <Box
+        as="nav"
+        position="fixed"
+        top={0}
+        left={0}
+        right={0}
+        zIndex={1000}
+        bg={
+          scrolled
+            ? colorMode === 'dark'
+              ? 'rgba(0,0,0,0.95)'
+              : 'rgba(255,255,255,0.95)'
+            : 'transparent'
+        }
+        backdropFilter={scrolled ? 'blur(20px)' : 'none'}
+        transition="all 0.3s cubic-bezier(0.4, 0, 0.2, 1)"
+        boxShadow={scrolled ? '0 10px 40px rgba(0,0,0,0.3)' : 'none'}
+        borderBottom="1px solid"
+        borderColor={
+          scrolled
+            ? colorMode === 'dark'
+              ? 'whiteAlpha.200'
+              : 'blackAlpha.200'
+            : 'transparent'
+        }
       >
-        {/* Logo */}
-        <HStack spacing={8}>
+        <Flex
+          position="relative"
+          maxW="1920px"
+          mx="auto"
+          px={{ base: 4, md: 8 }}
+          py={4}
+          align="center"
+          justify="space-between"
+        >
+          {/* Logo - Further Enlarged */}
           <Link to="/">
-            <HStack spacing={2}>
-              <Text
-                fontSize={{ base: '2xl', md: '3xl' }}
-                fontWeight="black"
-                fontFamily="'CustomLogo', sans-serif"
-                letterSpacing="tight"
-                cursor="pointer"
-                _hover={{ opacity: 0.8 }}
-                transition="all 0.2s"
-              >
-                another
-              </Text>
-              <Badge
-                bg="#00A8E1"
-                color="white"
-                px={2}
-                py={1}
-                fontSize="10px"
-                fontWeight="bold"
-                borderRadius="sm"
-              >
-                prime
-              </Badge>
-            </HStack>
+            <Text
+              fontSize={{ base: '3xl', md: '4xl' }}
+              fontWeight="black"
+              fontFamily="logo"
+              letterSpacing="logo"
+              cursor="pointer"
+              _hover={{ opacity: 0.8 }}
+              transition="opacity 0.2s"
+            >
+              another
+            </Text>
           </Link>
 
           {/* Desktop Nav */}
@@ -139,12 +163,13 @@ export const Navbar = () => {
                 <Link key={item.path} to={item.path}>
                   <Button
                     variant="ghost"
-                    size="sm"
-                    color={isActive(item.path) ? 'white' : 'gray.400'}
-                    borderBottom={isActive(item.path) ? '2px solid #00A8E1' : 'none'}
+                    size="md"
+                    fontWeight={isActive(item.path) ? '800' : '600'}
+                    opacity={isActive(item.path) ? 1 : 0.7}
+                    _hover={{ opacity: 1 }}
+                    borderBottom={isActive(item.path) ? '2px solid' : 'none'}
                     borderRadius={0}
-                    _hover={{ color: 'white', bg: 'transparent' }}
-                    fontWeight={isActive(item.path) ? 'bold' : 'normal'}
+                    px={4}
                   >
                     {item.label}
                   </Button>
@@ -152,137 +177,147 @@ export const Navbar = () => {
               ))}
             </HStack>
           )}
-        </HStack>
 
-        {/* Right Side */}
-        <HStack spacing={3}>
-          {/* Search */}
-          {user && (
-            <>
+          {/* Right Side */}
+          <HStack spacing={3}>
+            {/* Genre Filter */}
+            {user && (
+              <Button
+                leftIcon={<FiGrid />}
+                variant="ghost"
+                size="md"
+                fontWeight="700"
+                onClick={genreModal.onOpen}
+                display={{ base: 'none', md: 'flex' }}
+              >
+                Genres
+              </Button>
+            )}
+
+            {/* Language Filter */}
+            {user && (
+              <Button
+                variant="ghost"
+                size="md"
+                fontWeight="700"
+                onClick={languageModal.onOpen}
+                display={{ base: 'none', md: 'flex' }}
+              >
+                Languages
+              </Button>
+            )}
+
+            {/* Search */}
+            {user && (
               <form onSubmit={handleSearch}>
-                <InputGroup size="sm" display={{ base: 'none', md: 'flex' }} w="300px">
-                  <InputLeftElement>
-                    <FiSearch color="gray" />
+                <InputGroup size="md" display={{ base: 'none', md: 'flex' }} w="300px">
+                  <InputLeftElement pointerEvents="none">
+                    <FiSearch opacity={0.6} />
                   </InputLeftElement>
                   <Input
-                    placeholder="Search movies, shows..."
+                    placeholder="Search..."
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
-                    bg="rgba(26, 36, 47, 0.8)"
-                    border="1px solid rgba(255,255,255,0.1)"
-                    _hover={{ borderColor: '#00A8E1' }}
-                    _focus={{ borderColor: '#00A8E1', boxShadow: '0 0 0 1px #00A8E1' }}
-                    color="white"
+                    borderRadius="full"
                   />
                 </InputGroup>
               </form>
+            )}
 
-              <IconButton
-                icon={<FiSearch />}
-                variant="ghost"
-                size="sm"
-                display={{ base: 'flex', md: 'none' }}
-                onClick={() => navigate('/search')}
-                aria-label="Search"
-                color="gray.400"
-                _hover={{ color: 'white' }}
-              />
-            </>
-          )}
-
-          {/* Store Icon */}
-          {user && (
-            <IconButton
-              icon={<FiShoppingBag />}
-              variant="ghost"
-              size="sm"
-              aria-label="Store"
-              color="gray.400"
-              _hover={{ color: '#FFB800' }}
-            />
-          )}
-
-          {/* Mobile Menu */}
-          {user && (
-            <IconButton
-              icon={<FiMenu />}
-              variant="ghost"
-              size="sm"
-              display={{ base: 'flex', lg: 'none' }}
-              onClick={onOpen}
-              aria-label="Menu"
-              color="gray.400"
-              _hover={{ color: 'white' }}
-            />
-          )}
-
-          {/* User Menu */}
-          {user ? (
+            {/* Theme Toggle */}
             <Menu>
-              <MenuButton>
-                <HStack>
-                  <Avatar
-                    size="sm"
-                    name={user.email}
-                    src={user.photoURL}
-                    bg="#00A8E1"
-                    cursor="pointer"
-                    _hover={{ transform: 'scale(1.1)', boxShadow: '0 0 15px rgba(0,168,225,0.5)' }}
-                    transition="all 0.2s"
-                  />
-                </HStack>
-              </MenuButton>
-              <MenuList bg="#1A242F" borderColor="rgba(255,255,255,0.1)">
-                <MenuItem bg="transparent" _hover={{ bg: '#232F3E' }} isDisabled>
-                  <Text fontSize="sm" fontWeight="medium" color="white">
-                    {user.email}
-                  </Text>
+              <MenuButton
+                as={IconButton}
+                aria-label="Theme"
+                icon={colorMode === 'dark' ? <FiMoon /> : <FiSun />}
+                variant="ghost"
+              />
+              <MenuList>
+                <MenuItem icon={<FiMoon />} onClick={() => setColorMode('dark')}>
+                  Dark
                 </MenuItem>
-                <MenuItem bg="transparent" _hover={{ bg: '#232F3E' }} as={Link} to="/admin">
-                  <Text color="white">Studio</Text>
+                <MenuItem icon={<FiSun />} onClick={() => setColorMode('light')}>
+                  Light
                 </MenuItem>
-                <MenuItem bg="transparent" _hover={{ bg: '#232F3E' }} as={Link} to="/my-list">
-                  <Text color="white">Watchlist</Text>
-                </MenuItem>
-                <MenuItem bg="transparent" _hover={{ bg: '#232F3E' }} onClick={handleLogout}>
-                  <Text color="white">Sign Out</Text>
+                <MenuItem icon={<FiMonitor />} onClick={() => setColorMode('system')}>
+                  System
                 </MenuItem>
               </MenuList>
             </Menu>
-          ) : (
-            <HStack spacing={2}>
-              <Button
-                as={Link}
-                to="/login"
+
+            {/* Mobile Menu */}
+            {user && (
+              <IconButton
+                icon={<FiMenu />}
                 variant="ghost"
-                size="sm"
-                color="white"
-              >
-                Sign In
-              </Button>
-              <Button
-                as={Link}
-                to="/signup"
-                variant="primeGold"
-                size="sm"
-              >
-                Join Prime
-              </Button>
-            </HStack>
-          )}
-        </HStack>
-      </Flex>
+                display={{ base: 'flex', lg: 'none' }}
+                onClick={onOpen}
+                aria-label="Menu"
+              />
+            )}
+
+            {/* User Menu */}
+            {user ? (
+              <Menu>
+                <MenuButton>
+                  <Avatar
+                    size="sm"
+                    name={user.email}
+                    src={user.photoURL || undefined}
+                    cursor="pointer"
+                    _hover={{ transform: 'scale(1.05)' }}
+                    transition="transform 0.2s"
+                  />
+                </MenuButton>
+
+                <MenuList>
+                  <MenuItem isDisabled>
+                    <Text fontSize="sm" fontWeight="700">
+                      {user.email}
+                    </Text>
+                  </MenuItem>
+                  <MenuDivider />
+
+                  {userIsAdmin && (
+                    <>
+                      <MenuItem as={Link} to="/admin">
+                        Studio
+                      </MenuItem>
+                      <MenuDivider />
+                    </>
+                  )}
+
+                  <MenuItem as={Link} to="/my-list">
+                    Watchlist
+                  </MenuItem>
+                  <MenuItem as={Link} to="/settings" icon={<FiSettings />}>
+                    Settings
+                  </MenuItem>
+                  <MenuItem onClick={handleLogout}>Sign Out</MenuItem>
+                </MenuList>
+              </Menu>
+            ) : (
+              <HStack spacing={2}>
+                <Button as={Link} to="/login" variant="ghost" size="sm">
+                  Sign In
+                </Button>
+                <Button as={Link} to="/signup" variant="solid" size="sm">
+                  Join
+                </Button>
+              </HStack>
+            )}
+          </HStack>
+        </Flex>
+      </Box>
 
       {/* Mobile Drawer */}
-      <Drawer isOpen={isOpen} placement="left" onClose={onClose} size="xs">
+      <Drawer isOpen={isOpen} placement="left" onClose={onClose}>
         <DrawerOverlay />
-        <DrawerContent bg="#0F171E">
-          <DrawerCloseButton color="white" />
-          <DrawerHeader borderBottomWidth="1px" borderColor="rgba(255,255,255,0.1)">
-            <Text color="white">Menu</Text>
-          </DrawerHeader>
+        <DrawerContent>
+          <DrawerCloseButton />
+          <DrawerHeader>Menu</DrawerHeader>
           <DrawerBody>
-            <VStack align="stretch" spacing={2} mt={4}>
+            <VStack align="stretch" spacing={2}>
               {navItems.map((item) => (
                 <Button
                   key={item.path}
@@ -292,16 +327,103 @@ export const Navbar = () => {
                   variant="ghost"
                   justifyContent="flex-start"
                   onClick={onClose}
-                  color={isActive(item.path) ? '#00A8E1' : 'white'}
-                  _hover={{ bg: '#232F3E' }}
+                  fontWeight={isActive(item.path) ? '800' : '600'}
                 >
                   {item.label}
                 </Button>
               ))}
+              <Button leftIcon={<FiGrid />} variant="ghost" justifyContent="flex-start" onClick={genreModal.onOpen}>
+                Genres
+              </Button>
+              <Button variant="ghost" justifyContent="flex-start" onClick={languageModal.onOpen}>
+                Languages
+              </Button>
             </VStack>
           </DrawerBody>
         </DrawerContent>
       </Drawer>
-    </Box>
+
+      {/* Genre Modal - Prime Video Style */}
+      <Modal isOpen={genreModal.isOpen} onClose={genreModal.onClose} size="2xl" isCentered>
+        <ModalOverlay backdropFilter="blur(12px)" bg="blackAlpha.800" />
+        <ModalContent>
+          <ModalHeader>Select Genres</ModalHeader>
+          <ModalCloseButton />
+          <ModalBody pb={8}>
+            <SimpleGrid columns={{ base: 2, md: 3 }} spacing={3}>
+              {GENRES.map((genre) => (
+                <Button
+                  key={genre}
+                  onClick={() => toggleGenre(genre)}
+                  variant={selectedGenres.includes(genre) ? 'solid' : 'outline'}
+                  size="lg"
+                  fontWeight="700"
+                  justifyContent="space-between"
+                  rightIcon={
+                    selectedGenres.includes(genre) ? (
+                      <Badge colorScheme="green">✓</Badge>
+                    ) : undefined
+                  }
+                >
+                  {genre}
+                </Button>
+              ))}
+            </SimpleGrid>
+            {selectedGenres.length > 0 && (
+              <Button
+                mt={6}
+                w="full"
+                variant="outline"
+                onClick={() => setSelectedGenres([])}
+                fontWeight="700"
+              >
+                Clear All
+              </Button>
+            )}
+          </ModalBody>
+        </ModalContent>
+      </Modal>
+
+      {/* Language Modal */}
+      <Modal isOpen={languageModal.isOpen} onClose={languageModal.onClose} size="2xl" isCentered>
+        <ModalOverlay backdropFilter="blur(12px)" bg="blackAlpha.800" />
+        <ModalContent>
+          <ModalHeader>Select Languages</ModalHeader>
+          <ModalCloseButton />
+          <ModalBody pb={8}>
+            <SimpleGrid columns={{ base: 2, md: 3 }} spacing={3}>
+              {LANGUAGES.map((lang) => (
+                <Button
+                  key={lang}
+                  onClick={() => toggleLanguage(lang)}
+                  variant={selectedLanguages.includes(lang) ? 'solid' : 'outline'}
+                  size="lg"
+                  fontWeight="700"
+                  justifyContent="space-between"
+                  rightIcon={
+                    selectedLanguages.includes(lang) ? (
+                      <Badge colorScheme="green">✓</Badge>
+                    ) : undefined
+                  }
+                >
+                  {lang}
+                </Button>
+              ))}
+            </SimpleGrid>
+            {selectedLanguages.length > 0 && (
+              <Button
+                mt={6}
+                w="full"
+                variant="outline"
+                onClick={() => setSelectedLanguages([])}
+                fontWeight="700"
+              >
+                Clear All
+              </Button>
+            )}
+          </ModalBody>
+        </ModalContent>
+      </Modal>
+    </>
   );
 };

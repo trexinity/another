@@ -13,6 +13,7 @@ import {
   Center,
   ButtonGroup,
   Badge,
+  useColorMode,
 } from '@chakra-ui/react';
 import { ref, get } from 'firebase/database';
 import { db } from '../config/firebase';
@@ -21,6 +22,8 @@ import { useWatchlist } from '../hooks/useWatchlist';
 import { FiFilter } from 'react-icons/fi';
 
 export const TvShows = () => {
+  const { colorMode } = useColorMode();
+
   const [shows, setShows] = useState([]);
   const [filteredShows, setFilteredShows] = useState([]);
   const [selectedGenre, setSelectedGenre] = useState('all');
@@ -47,9 +50,12 @@ export const TvShows = () => {
           .map((key) => ({ id: key, ...data[key] }))
           .filter((m) => m.type === 'series');
         setShows(showsArray);
+      } else {
+        setShows([]);
       }
     } catch (error) {
       console.error('Error:', error);
+      setShows([]);
     } finally {
       setLoading(false);
     }
@@ -67,7 +73,7 @@ export const TvShows = () => {
         filtered.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
         break;
       case 'title':
-        filtered.sort((a, b) => a.title.localeCompare(b.title));
+        filtered.sort((a, b) => (a.title || '').localeCompare(b.title || ''));
         break;
       case 'popular':
         filtered.sort((a, b) => (b.views || 0) - (a.views || 0));
@@ -80,49 +86,45 @@ export const TvShows = () => {
   };
 
   const handleWatchlistToggle = (show) => {
-    if (watchlist.includes(show.id)) {
-      removeFromWatchlist(show.id);
-    } else {
-      addToWatchlist(show.id);
-    }
+    if (watchlist.includes(show.id)) removeFromWatchlist(show.id);
+    else addToWatchlist(show.id);
   };
 
   const genres = [...new Set(shows.map((m) => m.genre).filter(Boolean))];
 
   if (loading) {
     return (
-      <Center minH="100vh" bg="#0F171E">
-        <Spinner size="xl" color="#00A8E1" />
+      <Center minH="100vh" bg={colorMode === 'dark' ? 'black' : 'white'}>
+        <Spinner size="xl" />
       </Center>
     );
   }
 
   return (
-    <Box minH="100vh" bg="#0F171E" pt={24} pb={12}>
+    <Box minH="100vh" bg={colorMode === 'dark' ? 'black' : 'white'} pt={24} pb={12}>
       <Container maxW="1920px" px={{ base: 4, md: 12 }}>
         <VStack align="stretch" spacing={6} mb={8}>
           <HStack justify="space-between">
-            <Heading size="2xl" color="white" fontFamily="HeadingFont">
-              TV Shows
+            <Heading size="2xl" fontFamily="heading">
+              Series
             </Heading>
-            <Badge bg="#00A8E1" color="white" px={3} py={1} fontSize="md">
-              {filteredShows.length} Shows
+            <Badge px={3} py={1} fontSize="md" variant="subtle">
+              {filteredShows.length} Items
             </Badge>
           </HStack>
 
           <HStack spacing={4} flexWrap="wrap">
             <HStack>
-              <FiFilter color="#00A8E1" />
-              <Text color="gray.400" fontSize="sm">Filter:</Text>
+              <FiFilter />
+              <Text opacity={0.75} fontSize="sm">
+                Filter:
+              </Text>
             </HStack>
 
             <Select
               value={selectedGenre}
               onChange={(e) => setSelectedGenre(e.target.value)}
               maxW="200px"
-              bg="#1A242F"
-              border="1px solid rgba(255,255,255,0.1)"
-              color="white"
               size="sm"
             >
               <option value="all">All Genres</option>
@@ -133,32 +135,14 @@ export const TvShows = () => {
               ))}
             </Select>
 
-            <ButtonGroup size="sm" isAttached variant="outline">
-              <Button
-                onClick={() => setSortBy('recent')}
-                bg={sortBy === 'recent' ? '#00A8E1' : 'transparent'}
-                color={sortBy === 'recent' ? 'white' : 'gray.400'}
-                _hover={{ bg: sortBy === 'recent' ? '#0095C8' : '#1A242F' }}
-                borderColor="rgba(255,255,255,0.1)"
-              >
+            <ButtonGroup size="sm" isAttached>
+              <Button onClick={() => setSortBy('recent')} variant={sortBy === 'recent' ? 'solidBW' : 'ghostBW'}>
                 Recent
               </Button>
-              <Button
-                onClick={() => setSortBy('popular')}
-                bg={sortBy === 'popular' ? '#00A8E1' : 'transparent'}
-                color={sortBy === 'popular' ? 'white' : 'gray.400'}
-                _hover={{ bg: sortBy === 'popular' ? '#0095C8' : '#1A242F' }}
-                borderColor="rgba(255,255,255,0.1)"
-              >
+              <Button onClick={() => setSortBy('popular')} variant={sortBy === 'popular' ? 'solidBW' : 'ghostBW'}>
                 Popular
               </Button>
-              <Button
-                onClick={() => setSortBy('title')}
-                bg={sortBy === 'title' ? '#00A8E1' : 'transparent'}
-                color={sortBy === 'title' ? 'white' : 'gray.400'}
-                _hover={{ bg: sortBy === 'title' ? '#0095C8' : '#1A242F' }}
-                borderColor="rgba(255,255,255,0.1)"
-              >
+              <Button onClick={() => setSortBy('title')} variant={sortBy === 'title' ? 'solidBW' : 'ghostBW'}>
                 A-Z
               </Button>
             </ButtonGroup>
@@ -171,16 +155,18 @@ export const TvShows = () => {
               <MovieCard
                 key={show.id}
                 movie={show}
-                onAddToList={handleWatchlistToggle}
+                onAddToList={() => handleWatchlistToggle(show)}
                 isInList={watchlist.includes(show.id)}
               />
             ))}
           </SimpleGrid>
         ) : (
           <Center py={20}>
-            <VStack spacing={4}>
-              <Text fontSize="2xl" color="white">No TV shows found</Text>
-              <Text color="gray.500">Try adjusting your filters</Text>
+            <VStack spacing={2}>
+              <Text fontSize="2xl" fontWeight="700">
+                No series found
+              </Text>
+              <Text opacity={0.7}>Try adjusting your filters.</Text>
             </VStack>
           </Center>
         )}
