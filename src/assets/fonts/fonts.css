@@ -1,6 +1,15 @@
+/* Logo Font - transcity */
 @font-face {
   font-family: 'CustomLogo';
   src: url('./transcity.regular.otf') format('opentype');
+  font-weight: normal;
+  font-style: normal;
+}
+
+/* Heading Font - journey */
+@font-face {
+  font-family: 'HeadingFont';
+  src: url('./journey.otf') format('opentype');
   font-weight: normal;
   font-style: normal;
 }

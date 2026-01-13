@@ -6,10 +6,18 @@ const theme = extendTheme({
     useSystemColorMode: false,
   },
   fonts: {
-    heading: `'CustomLogo', -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif`,
-    body: `-apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif`,
+    logo: `'CustomLogo', sans-serif`,
+    heading: `'HeadingFont', 'Ember', -apple-system, sans-serif`,
+    body: `'Amazon Ember', -apple-system, BlinkMacSystemFont, sans-serif`,
   },
   colors: {
+    prime: {
+      blue: '#00A8E1',
+      gold: '#FFB800',
+      darkBg: '#0F171E',
+      cardBg: '#1A242F',
+      hover: '#232F3E',
+    },
     brand: {
       50: '#f7fafc',
       100: '#edf2f7',
@@ -26,40 +34,55 @@ const theme = extendTheme({
   styles: {
     global: (props) => ({
       body: {
-        bg: props.colorMode === 'dark' ? 'black' : 'white',
+        bg: props.colorMode === 'dark' ? '#0F171E' : 'white',
         color: props.colorMode === 'dark' ? 'white' : 'black',
+        overflowX: 'hidden',
+      },
+      '*::-webkit-scrollbar': {
+        width: '8px',
+        height: '8px',
+      },
+      '*::-webkit-scrollbar-track': {
+        bg: 'transparent',
+      },
+      '*::-webkit-scrollbar-thumb': {
+        bg: '#232F3E',
+        borderRadius: '10px',
+      },
+      '*::-webkit-scrollbar-thumb:hover': {
+        bg: '#37475A',
       },
     }),
   },
   components: {
     Button: {
       baseStyle: {
-        fontWeight: 'semibold',
-        borderRadius: 'md',
+        fontWeight: '600',
+        borderRadius: '4px',
+        transition: 'all 0.2s',
       },
       variants: {
-        solid: (props) => ({
-          bg: props.colorMode === 'dark' ? 'white' : 'black',
-          color: props.colorMode === 'dark' ? 'black' : 'white',
+        prime: {
+          bg: '#00A8E1',
+          color: 'white',
           _hover: {
-            bg: props.colorMode === 'dark' ? 'gray.200' : 'gray.800',
-            transform: 'translateY(-2px)',
-            boxShadow: 'lg',
+            bg: '#0095C8',
+            transform: 'scale(1.02)',
           },
-          _active: {
-            transform: 'translateY(0)',
-          },
-        }),
-        outline: (props) => ({
-          borderColor: props.colorMode === 'dark' ? 'white' : 'black',
-          color: props.colorMode === 'dark' ? 'white' : 'black',
+        },
+        primeGold: {
+          bg: '#FFB800',
+          color: '#0F171E',
           _hover: {
-            bg: props.colorMode === 'dark' ? 'whiteAlpha.200' : 'blackAlpha.200',
+            bg: '#E6A600',
+            transform: 'scale(1.02)',
           },
-        }),
-      },
-      defaultProps: {
-        variant: 'solid',
+        },
+        ghost: {
+          _hover: {
+            bg: 'whiteAlpha.100',
+          },
+        },
       },
     },
   },

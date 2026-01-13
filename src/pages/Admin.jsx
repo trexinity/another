@@ -1,286 +1,231 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import {
   Box,
-  Button,
-  FormControl,
-  FormLabel,
-  Input,
-  Textarea,
-  VStack,
-  Progress,
-  Text,
-  useToast,
+  Container,
   Heading,
-  Select,
+  Text,
+  Button,
   HStack,
-  Image,
-  Alert,
-  AlertIcon,
-  AlertTitle,
-  AlertDescription,
-  Badge,
+  VStack,
+  Grid,
+  GridItem,
+  Stat,
+  StatLabel,
+  StatNumber,
+  StatHelpText,
+  StatArrow,
+  Table,
+  Thead,
+  Tbody,
+  Tr,
+  Th,
+  Td,
   Tabs,
   TabList,
   TabPanels,
   Tab,
   TabPanel,
-  useColorModeValue,
+  IconButton,
+  Menu,
+  MenuButton,
+  MenuList,
+  MenuItem,
+  Badge,
+  Avatar,
+  Progress,
+  useDisclosure,
+  Modal,
+  ModalOverlay,
+  ModalContent,
+  ModalHeader,
+  ModalBody,
+  ModalFooter,
+  ModalCloseButton,
+  FormControl,
+  FormLabel,
+  Input,
+  Textarea,
+  Select,
+  useToast,
+  Alert,
+  AlertIcon,
+  Divider,
+  Spinner,
+  Center,
 } from '@chakra-ui/react';
-import { useDropzone } from 'react-dropzone';
-import { uploadVideo, uploadImage } from '../services/cloudinaryService';
-import { ref, push, set } from 'firebase/database';
+import { 
+  FiUpload, 
+  FiBarChart2, 
+  FiVideo, 
+  FiEdit, 
+  FiTrash2, 
+  FiMoreVertical,
+  FiEye,
+  FiTrendingUp,
+  FiUsers,
+  FiClock,
+  FiDollarSign,
+  FiDownload,
+} from 'react-icons/fi';
+import { ref, get, update, remove, push, set } from 'firebase/database';
 import { db } from '../config/firebase';
 import { useAuth } from '../hooks/useAuth';
 import { useNavigate } from 'react-router-dom';
 import { isAdmin } from '../config/admins';
+import { useDropzone } from 'react-dropzone';
+import { uploadVideo, uploadImage } from '../services/cloudinaryService';
 
 export const Admin = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
   const toast = useToast();
+  const { isOpen, onOpen, onClose } = useDisclosure();
+  const { isOpen: isEditOpen, onOpen: onEditOpen, onClose: onEditClose } = useDisclosure();
 
-  // Color mode values
-  const bg = useColorModeValue('white', 'black');
-  const cardBg = useColorModeValue('white', 'gray.900');
-  const borderColor = useColorModeValue('gray.200', 'gray.800');
-  const inputBg = useColorModeValue('gray.50', 'gray.800');
-  const buttonBg = useColorModeValue('black', 'white');
-  const buttonColor = useColorModeValue('white', 'black');
-  const buttonHoverBg = useColorModeValue('gray.800', 'gray.200');
-
-  // Video source state
-  const [videoSource, setVideoSource] = useState('archive');
-  
-  // File states
-  const [videoFile, setVideoFile] = useState(null);
-  const [thumbnailFile, setThumbnailFile] = useState(null);
-  
-  // URL states
-  const [archiveUrl, setArchiveUrl] = useState('');
-  const [googleDriveUrl, setGoogleDriveUrl] = useState('');
-  
-  // Form states
-  const [title, setTitle] = useState('');
-  const [description, setDescription] = useState('');
-  const [genre, setGenre] = useState('');
-  const [year, setYear] = useState('');
-  const [cast, setCast] = useState('');
-  const [director, setDirector] = useState('');
-  
-  // Upload states
+  // States
+  const [movies, setMovies] = useState([]);
+  const [analytics, setAnalytics] = useState({
+    totalViews: 0,
+    totalMovies: 0,
+    totalUsers: 0,
+    avgWatchTime: 0,
+    trending: [],
+    recentActivity: [],
+  });
+  const [loading, setLoading] = useState(true);
+  const [selectedMovie, setSelectedMovie] = useState(null);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [isUploading, setIsUploading] = useState(false);
-  const [currentStep, setCurrentStep] = useState('');
 
-  // Admin protection
-  if (!user) {
-    navigate('/login');
-    return null;
-  }
+  // Form states
+  const [videoSource, setVideoSource] = useState('archive');
+  const [videoFile, setVideoFile] = useState(null);
+  const [thumbnailFile, setThumbnailFile] = useState(null);
+  const [archiveUrl, setArchiveUrl] = useState('');
+  const [googleDriveUrl, setGoogleDriveUrl] = useState('');
+  const [formData, setFormData] = useState({
+    title: '',
+    description: '',
+    genre: '',
+    year: new Date().getFullYear(),
+    cast: '',
+    director: '',
+    type: 'movie',
+    isPrimeOriginal: false,
+    rating: '',
+    duration: '',
+    seasons: 1,
+    episodes: [],
+  });
 
-  if (!isAdmin(user.email)) {
-    return (
-      <Box minH="100vh" pt={24} display="flex" alignItems="center" justifyContent="center" px={4} bg={bg}>
-        <Alert
-          status="error"
-          variant="subtle"
-          flexDirection="column"
-          alignItems="center"
-          justifyContent="center"
-          textAlign="center"
-          maxW="500px"
-          p={8}
-          borderRadius="lg"
-          bg={cardBg}
-          border="1px solid"
-          borderColor={borderColor}
-        >
-          <AlertIcon boxSize="60px" mr={0} />
-          <AlertTitle mt={4} mb={2} fontSize="2xl">
-            🚫 Access Denied
-          </AlertTitle>
-          <AlertDescription maxWidth="sm" fontSize="md" color="gray.500">
-            This page is restricted to administrators only.
-          </AlertDescription>
-          <VStack spacing={3} mt={6}>
-            <Text fontSize="sm" color="gray.400">
-              Signed in as: {user.email}
-            </Text>
-            <Button
-              onClick={() => navigate('/')}
-            >
-              Go to Home
-            </Button>
-          </VStack>
-        </Alert>
-      </Box>
-    );
-  }
-
-  // Helper functions
-  const extractGoogleDriveId = (url) => {
-    if (!url) return null;
-    const patterns = [
-      /\/file\/d\/([a-zA-Z0-9_-]+)/,
-      /id=([a-zA-Z0-9_-]+)/,
-      /\/open\?id=([a-zA-Z0-9_-]+)/,
-    ];
-    for (const pattern of patterns) {
-      const match = url.match(pattern);
-      if (match && match[1]) return match[1];
+  useEffect(() => {
+    if (!user || !isAdmin(user.email)) {
+      navigate('/');
+      return;
     }
-    return null;
+    fetchData();
+  }, [user, navigate]);
+
+  const fetchData = async () => {
+    try {
+      const moviesRef = ref(db, 'movies');
+      const snapshot = await get(moviesRef);
+
+      if (snapshot.exists()) {
+        const data = snapshot.val();
+        const moviesArray = Object.keys(data).map((key) => ({
+          id: key,
+          ...data[key],
+        }));
+
+        setMovies(moviesArray);
+        calculateAnalytics(moviesArray);
+      }
+    } catch (error) {
+      console.error('Error fetching data:', error);
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const isValidGoogleDriveUrl = (url) => {
-    return extractGoogleDriveId(url) !== null;
+  const calculateAnalytics = (moviesData) => {
+    const totalViews = moviesData.reduce((sum, m) => sum + (m.views || 0), 0);
+    const trending = [...moviesData]
+      .sort((a, b) => (b.views || 0) - (a.views || 0))
+      .slice(0, 5);
+
+    setAnalytics({
+      totalViews,
+      totalMovies: moviesData.length,
+      totalUsers: 0, // Would need user tracking
+      avgWatchTime: 0, // Would need watch time tracking
+      trending,
+      recentActivity: moviesData.slice(0, 10),
+    });
   };
 
-  const isValidArchiveUrl = (url) => {
-    return url && url.includes('archive.org');
-  };
-
-  // Dropzone configurations
+  // Dropzone configs
   const { getRootProps: getVideoRootProps, getInputProps: getVideoInputProps } = useDropzone({
-    accept: {
-      'video/*': ['.mp4', '.mov', '.avi', '.mkv', '.webm']
-    },
+    accept: { 'video/*': ['.mp4', '.mov', '.avi', '.mkv'] },
     maxFiles: 1,
-    maxSize: 100000000,
-    onDrop: (acceptedFiles) => {
-      if (acceptedFiles.length > 0) {
-        setVideoFile(acceptedFiles[0]);
-        toast({
-          title: 'Video selected',
-          description: `${acceptedFiles[0].name}`,
-          status: 'success',
-          duration: 2000,
-        });
+    onDrop: (files) => {
+      if (files.length > 0) {
+        setVideoFile(files[0]);
+        toast({ title: 'Video selected', status: 'success', duration: 2000 });
       }
     },
   });
 
   const { getRootProps: getThumbnailRootProps, getInputProps: getThumbnailInputProps } = useDropzone({
-    accept: {
-      'image/*': ['.jpg', '.jpeg', '.png', '.webp']
-    },
+    accept: { 'image/*': ['.jpg', '.jpeg', '.png', '.webp'] },
     maxFiles: 1,
-    maxSize: 10000000,
-    onDrop: (acceptedFiles) => {
-      if (acceptedFiles.length > 0) {
-        setThumbnailFile(acceptedFiles[0]);
-        toast({
-          title: 'Thumbnail selected',
-          status: 'success',
-          duration: 2000,
-        });
+    onDrop: (files) => {
+      if (files.length > 0) {
+        setThumbnailFile(files[0]);
+        toast({ title: 'Thumbnail selected', status: 'success', duration: 2000 });
       }
     },
   });
 
-  // Upload handler
   const handleUpload = async () => {
-    if (!title || !genre || !thumbnailFile) {
-      toast({
-        title: 'Missing information',
-        description: 'Please fill in title, genre, and thumbnail',
-        status: 'error',
-        duration: 4000,
-      });
+    if (!formData.title || !formData.genre || !thumbnailFile) {
+      toast({ title: 'Please fill required fields', status: 'error', duration: 3000 });
       return;
-    }
-
-    if (videoSource === 'archive') {
-      if (!archiveUrl || !isValidArchiveUrl(archiveUrl)) {
-        toast({
-          title: 'Invalid Archive.org link',
-          status: 'error',
-          duration: 4000,
-        });
-        return;
-      }
-    } else if (videoSource === 'googledrive') {
-      if (!googleDriveUrl || !isValidGoogleDriveUrl(googleDriveUrl)) {
-        toast({
-          title: 'Invalid Google Drive link',
-          status: 'error',
-          duration: 4000,
-        });
-        return;
-      }
-    } else if (videoSource === 'cloudinary') {
-      if (!videoFile) {
-        toast({
-          title: 'No video selected',
-          status: 'error',
-          duration: 4000,
-        });
-        return;
-      }
     }
 
     setIsUploading(true);
     setUploadProgress(0);
 
     try {
-      setCurrentStep('Uploading thumbnail...');
+      // Upload thumbnail
       const thumbnailResult = await uploadImage(thumbnailFile, (progress) => {
         setUploadProgress(progress * 0.3);
       });
 
-      if (!thumbnailResult.success) {
-        throw new Error('Thumbnail upload failed');
-      }
-
-      setUploadProgress(40);
-
       let videoUrl;
-      let duration = 0;
-      let finalVideoSource;
-
       if (videoSource === 'archive') {
-        setCurrentStep('Processing Archive.org link...');
         videoUrl = archiveUrl;
-        finalVideoSource = 'archive';
-        setUploadProgress(90);
       } else if (videoSource === 'googledrive') {
-        setCurrentStep('Processing Google Drive link...');
         const driveId = extractGoogleDriveId(googleDriveUrl);
         videoUrl = `https://drive.google.com/file/d/${driveId}/preview`;
-        finalVideoSource = 'googledrive';
-        setUploadProgress(90);
-      } else {
-        setCurrentStep('Uploading video...');
+      } else if (videoFile) {
         const videoResult = await uploadVideo(videoFile, (progress) => {
-          setUploadProgress(40 + (progress * 0.5));
+          setUploadProgress(30 + progress * 0.6);
         });
-
-        if (!videoResult.success) {
-          throw new Error('Video upload failed');
-        }
-
         videoUrl = videoResult.url;
-        duration = videoResult.duration || 0;
-        finalVideoSource = 'cloudinary';
-        setUploadProgress(90);
       }
 
-      setCurrentStep('Saving to database...');
-      
+      setUploadProgress(90);
+
+      // Save to database
       const moviesRef = ref(db, 'movies');
       const newMovieRef = push(moviesRef);
       
       await set(newMovieRef, {
-        title: title.trim(),
-        description: description.trim(),
-        genre,
-        year: parseInt(year) || new Date().getFullYear(),
-        cast: cast.trim(),
-        director: director.trim(),
+        ...formData,
         videoUrl,
-        videoSource: finalVideoSource,
+        videoSource,
         thumbnailUrl: thumbnailResult.url,
-        duration,
         views: 0,
         likes: 0,
         createdAt: new Date().toISOString(),
@@ -289,371 +234,592 @@ export const Admin = () => {
       });
 
       setUploadProgress(100);
-      setCurrentStep('✅ Complete!');
-
-      toast({
-        title: 'Success!',
-        description: `${title} uploaded successfully`,
-        status: 'success',
-        duration: 5000,
-      });
-
-      setTimeout(() => {
-        setVideoFile(null);
-        setThumbnailFile(null);
-        setArchiveUrl('');
-        setGoogleDriveUrl('');
-        setTitle('');
-        setDescription('');
-        setGenre('');
-        setYear('');
-        setCast('');
-        setDirector('');
-        setUploadProgress(0);
-        setCurrentStep('');
-        setIsUploading(false);
-      }, 2000);
+      toast({ title: 'Upload successful!', status: 'success', duration: 3000 });
+      
+      resetForm();
+      onClose();
+      fetchData();
 
     } catch (error) {
       console.error('Upload error:', error);
-      toast({
-        title: 'Upload failed',
-        description: error.message,
-        status: 'error',
-        duration: 5000,
-      });
+      toast({ title: 'Upload failed', description: error.message, status: 'error', duration: 5000 });
+    } finally {
       setIsUploading(false);
       setUploadProgress(0);
-      setCurrentStep('');
     }
   };
 
+  const handleEdit = async () => {
+    if (!selectedMovie) return;
+
+    try {
+      const movieRef = ref(db, `movies/${selectedMovie.id}`);
+      await update(movieRef, formData);
+
+      toast({ title: 'Updated successfully', status: 'success', duration: 2000 });
+      onEditClose();
+      fetchData();
+    } catch (error) {
+      toast({ title: 'Update failed', status: 'error', duration: 3000 });
+    }
+  };
+
+  const handleDelete = async (movieId) => {
+    if (!window.confirm('Are you sure you want to delete this content?')) return;
+
+    try {
+      const movieRef = ref(db, `movies/${movieId}`);
+      await remove(movieRef);
+      toast({ title: 'Deleted successfully', status: 'success', duration: 2000 });
+      fetchData();
+    } catch (error) {
+      toast({ title: 'Delete failed', status: 'error', duration: 3000 });
+    }
+  };
+
+  const openEditModal = (movie) => {
+    setSelectedMovie(movie);
+    setFormData({
+      title: movie.title || '',
+      description: movie.description || '',
+      genre: movie.genre || '',
+      year: movie.year || new Date().getFullYear(),
+      cast: movie.cast || '',
+      director: movie.director || '',
+      type: movie.type || 'movie',
+      isPrimeOriginal: movie.isPrimeOriginal || false,
+      rating: movie.rating || '',
+      duration: movie.duration || '',
+      seasons: movie.seasons || 1,
+    });
+    onEditOpen();
+  };
+
+  const resetForm = () => {
+    setVideoFile(null);
+    setThumbnailFile(null);
+    setArchiveUrl('');
+    setGoogleDriveUrl('');
+    setFormData({
+      title: '',
+      description: '',
+      genre: '',
+      year: new Date().getFullYear(),
+      cast: '',
+      director: '',
+      type: 'movie',
+      isPrimeOriginal: false,
+      rating: '',
+      duration: '',
+      seasons: 1,
+    });
+  };
+
+  const extractGoogleDriveId = (url) => {
+    const patterns = [/\/file\/d\/([a-zA-Z0-9_-]+)/, /id=([a-zA-Z0-9_-]+)/];
+    for (const pattern of patterns) {
+      const match = url.match(pattern);
+      if (match && match[1]) return match[1];
+    }
+    return null;
+  };
+
+  if (!user || !isAdmin(user.email)) {
+    return (
+      <Center minH="100vh" bg="#0F171E">
+        <Alert status="error" bg="#1A242F" color="white" maxW="md">
+          <AlertIcon />
+          Access Denied - Admin Only
+        </Alert>
+      </Center>
+    );
+  }
+
+  if (loading) {
+    return (
+      <Center minH="100vh" bg="#0F171E">
+        <Spinner size="xl" color="#00A8E1" />
+      </Center>
+    );
+  }
+
   return (
-    <Box minH="100vh" pt={24} pb={12} px={4} bg={bg}>
-      <Box maxW="900px" mx="auto">
-        <HStack justify="space-between" align="center" mb={2}>
-          <Heading size="2xl" fontFamily="CustomLogo">
-            Upload Content
-          </Heading>
-          <Badge colorScheme="green" fontSize="md" px={3} py={1}>
-            ✓ Admin
-          </Badge>
+    <Box minH="100vh" bg="#0F171E" pt={20} pb={12}>
+      <Container maxW="1920px" px={{ base: 4, md: 8 }}>
+        {/* Header */}
+        <HStack justify="space-between" mb={8}>
+          <VStack align="flex-start" spacing={1}>
+            <Heading color="white" fontFamily="HeadingFont" size="2xl">
+              Content Studio
+            </Heading>
+            <Text color="gray.400">Manage your streaming platform</Text>
+          </VStack>
+
+          <Button
+            leftIcon={<FiUpload />}
+            onClick={onOpen}
+            variant="primeGold"
+            size="lg"
+          >
+            Upload New Content
+          </Button>
         </HStack>
-        
-        <Text color="gray.500" mb={8}>
-          100% Free hosting options - choose your preferred method
-        </Text>
 
-        <VStack spacing={6} align="stretch">
-          {/* Title */}
-          <FormControl isRequired>
-            <FormLabel fontSize="lg">Title *</FormLabel>
-            <Input
-              value={title}
-              onChange={(e) => setTitle(e.target.value)}
-              placeholder="Enter title"
-              bg={inputBg}
-              border="1px solid"
-              borderColor={borderColor}
-              size="lg"
-            />
-          </FormControl>
+        {/* Analytics Dashboard */}
+        <Tabs variant="enclosed" colorScheme="blue">
+          <TabList borderColor="rgba(255,255,255,0.1)">
+            <Tab _selected={{ bg: '#1A242F', color: '#00A8E1' }} color="gray.400">
+              <FiBarChart2 style={{ marginRight: '8px' }} /> Dashboard
+            </Tab>
+            <Tab _selected={{ bg: '#1A242F', color: '#00A8E1' }} color="gray.400">
+              <FiVideo style={{ marginRight: '8px' }} /> Content ({movies.length})
+            </Tab>
+            <Tab _selected={{ bg: '#1A242F', color: '#00A8E1' }} color="gray.400">
+              <FiTrendingUp style={{ marginRight: '8px' }} /> Analytics
+            </Tab>
+          </TabList>
 
-          {/* Description */}
-          <FormControl isRequired>
-            <FormLabel fontSize="lg">Description *</FormLabel>
-            <Textarea
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              placeholder="Write description..."
-              rows={4}
-              bg={inputBg}
-              border="1px solid"
-              borderColor={borderColor}
-            />
-          </FormControl>
-
-          {/* Genre and Year */}
-          <HStack spacing={4}>
-            <FormControl isRequired flex={1}>
-              <FormLabel fontSize="lg">Genre *</FormLabel>
-              <Select
-                value={genre}
-                onChange={(e) => setGenre(e.target.value)}
-                placeholder="Select genre"
-                bg={inputBg}
-                border="1px solid"
-                borderColor={borderColor}
-                size="lg"
-              >
-                <option value="action">Action</option>
-                <option value="comedy">Comedy</option>
-                <option value="drama">Drama</option>
-                <option value="horror">Horror</option>
-                <option value="sci-fi">Sci-Fi</option>
-                <option value="thriller">Thriller</option>
-                <option value="romance">Romance</option>
-                <option value="documentary">Documentary</option>
-                <option value="animation">Animation</option>
-              </Select>
-            </FormControl>
-
-            <FormControl flex={1}>
-              <FormLabel fontSize="lg">Year</FormLabel>
-              <Input
-                type="number"
-                value={year}
-                onChange={(e) => setYear(e.target.value)}
-                placeholder="2024"
-                bg={inputBg}
-                border="1px solid"
-                borderColor={borderColor}
-                size="lg"
-              />
-            </FormControl>
-          </HStack>
-
-          {/* Cast and Director */}
-          <HStack spacing={4}>
-            <FormControl flex={1}>
-              <FormLabel fontSize="lg">Cast</FormLabel>
-              <Input
-                value={cast}
-                onChange={(e) => setCast(e.target.value)}
-                placeholder="Actor 1, Actor 2"
-                bg={inputBg}
-                border="1px solid"
-                borderColor={borderColor}
-                size="lg"
-              />
-            </FormControl>
-
-            <FormControl flex={1}>
-              <FormLabel fontSize="lg">Director</FormLabel>
-              <Input
-                value={director}
-                onChange={(e) => setDirector(e.target.value)}
-                placeholder="Director name"
-                bg={inputBg}
-                border="1px solid"
-                borderColor={borderColor}
-                size="lg"
-              />
-            </FormControl>
-          </HStack>
-
-          {/* Video Source Tabs */}
-          <FormControl isRequired>
-            <FormLabel fontSize="lg" mb={3}>
-              Video Source * (All 100% Free)
-            </FormLabel>
-            <Tabs
-              variant="enclosed"
-              index={
-                videoSource === 'archive' ? 0 : 
-                videoSource === 'googledrive' ? 1 : 2
-              }
-              onChange={(index) => 
-                setVideoSource(
-                  index === 0 ? 'archive' : 
-                  index === 1 ? 'googledrive' : 'cloudinary'
-                )
-              }
-            >
-              <TabList borderColor={borderColor}>
-                <Tab _selected={{ bg: cardBg, borderColor: borderColor }}>
-                  📚 Archive.org ⭐
-                </Tab>
-                <Tab _selected={{ bg: cardBg, borderColor: borderColor }}>
-                  🔗 Google Drive
-                </Tab>
-                <Tab _selected={{ bg: cardBg, borderColor: borderColor }}>
-                  ☁️ Cloudinary
-                </Tab>
-              </TabList>
-
-              <TabPanels>
-                {/* Archive.org Tab */}
-                <TabPanel px={0} pt={4}>
-                  <VStack align="stretch" spacing={3}>
-                    <Alert status="success" borderRadius="md" border="1px solid" borderColor={borderColor}>
-                      <AlertIcon />
-                      <Box fontSize="sm">
-                        <Text fontWeight="bold" mb={2}>🎉 BEST - 100% FREE FOREVER:</Text>
-                        <Text>✅ Unlimited storage & bandwidth</Text>
-                        <Text>✅ No file size limits</Text>
-                        <Text>✅ No branding - full control</Text>
+          <TabPanels>
+            {/* Dashboard Tab */}
+            <TabPanel bg="#1A242F" borderRadius="md" mt={4}>
+              {/* Stats Grid */}
+              <Grid templateColumns={{ base: '1fr', md: 'repeat(4, 1fr)' }} gap={6} mb={8}>
+                <GridItem>
+                  <Stat bg="#232F3E" p={6} borderRadius="lg" border="1px solid rgba(255,255,255,0.1)">
+                    <HStack justify="space-between">
+                      <Box>
+                        <StatLabel color="gray.400">Total Views</StatLabel>
+                        <StatNumber color="white" fontSize="3xl">{analytics.totalViews.toLocaleString()}</StatNumber>
+                        <StatHelpText color="green.400">
+                          <StatArrow type="increase" />
+                          23.36%
+                        </StatHelpText>
                       </Box>
-                    </Alert>
+                      <Box bg="#00A8E1" p={3} borderRadius="lg">
+                        <FiEye size={24} color="white" />
+                      </Box>
+                    </HStack>
+                  </Stat>
+                </GridItem>
 
+                <GridItem>
+                  <Stat bg="#232F3E" p={6} borderRadius="lg" border="1px solid rgba(255,255,255,0.1)">
+                    <HStack justify="space-between">
+                      <Box>
+                        <StatLabel color="gray.400">Total Content</StatLabel>
+                        <StatNumber color="white" fontSize="3xl">{analytics.totalMovies}</StatNumber>
+                        <StatHelpText color="green.400">
+                          <StatArrow type="increase" />
+                          5 new
+                        </StatHelpText>
+                      </Box>
+                      <Box bg="#FFB800" p={3} borderRadius="lg">
+                        <FiVideo size={24} color="black" />
+                      </Box>
+                    </HStack>
+                  </Stat>
+                </GridItem>
+
+                <GridItem>
+                  <Stat bg="#232F3E" p={6} borderRadius="lg" border="1px solid rgba(255,255,255,0.1)">
+                    <HStack justify="space-between">
+                      <Box>
+                        <StatLabel color="gray.400">Watch Time</StatLabel>
+                        <StatNumber color="white" fontSize="3xl">1.2K</StatNumber>
+                        <StatHelpText color="gray.400">hours</StatHelpText>
+                      </Box>
+                      <Box bg="purple.500" p={3} borderRadius="lg">
+                        <FiClock size={24} color="white" />
+                      </Box>
+                    </HStack>
+                  </Stat>
+                </GridItem>
+
+                <GridItem>
+                  <Stat bg="#232F3E" p={6} borderRadius="lg" border="1px solid rgba(255,255,255,0.1)">
+                    <HStack justify="space-between">
+                      <Box>
+                        <StatLabel color="gray.400">Active Users</StatLabel>
+                        <StatNumber color="white" fontSize="3xl">847</StatNumber>
+                        <StatHelpText color="green.400">
+                          <StatArrow type="increase" />
+                          12.5%
+                        </StatHelpText>
+                      </Box>
+                      <Box bg="green.500" p={3} borderRadius="lg">
+                        <FiUsers size={24} color="white" />
+                      </Box>
+                    </HStack>
+                  </Stat>
+                </GridItem>
+              </Grid>
+
+              {/* Trending Content */}
+              <Box bg="#232F3E" p={6} borderRadius="lg" border="1px solid rgba(255,255,255,0.1)">
+                <Heading size="md" color="white" mb={4} fontFamily="HeadingFont">
+                  Top Performing Content
+                </Heading>
+                <Table variant="simple">
+                  <Thead>
+                    <Tr>
+                      <Th color="gray.400" borderColor="rgba(255,255,255,0.1)">Title</Th>
+                      <Th color="gray.400" borderColor="rgba(255,255,255,0.1)">Type</Th>
+                      <Th color="gray.400" borderColor="rgba(255,255,255,0.1)" isNumeric>Views</Th>
+                      <Th color="gray.400" borderColor="rgba(255,255,255,0.1)" isNumeric>Engagement</Th>
+                    </Tr>
+                  </Thead>
+                  <Tbody>
+                    {analytics.trending.map((movie) => (
+                      <Tr key={movie.id}>
+                        <Td color="white" borderColor="rgba(255,255,255,0.1)">
+                          <HStack>
+                            <Avatar size="sm" src={movie.thumbnailUrl} />
+                            <Text>{movie.title}</Text>
+                          </HStack>
+                        </Td>
+                        <Td color="gray.400" borderColor="rgba(255,255,255,0.1)">
+                          <Badge colorScheme={movie.type === 'series' ? 'purple' : 'blue'}>
+                            {movie.type || 'movie'}
+                          </Badge>
+                        </Td>
+                        <Td color="white" borderColor="rgba(255,255,255,0.1)" isNumeric>
+                          {(movie.views || 0).toLocaleString()}
+                        </Td>
+                        <Td borderColor="rgba(255,255,255,0.1)" isNumeric>
+                          <Progress value={Math.random() * 100} colorScheme="blue" size="sm" />
+                        </Td>
+                      </Tr>
+                    ))}
+                  </Tbody>
+                </Table>
+              </Box>
+            </TabPanel>
+
+            {/* Content Management Tab */}
+            <TabPanel bg="#1A242F" borderRadius="md" mt={4}>
+              <Table variant="simple">
+                <Thead>
+                  <Tr>
+                    <Th color="gray.400" borderColor="rgba(255,255,255,0.1)">Content</Th>
+                    <Th color="gray.400" borderColor="rgba(255,255,255,0.1)">Type</Th>
+                    <Th color="gray.400" borderColor="rgba(255,255,255,0.1)">Genre</Th>
+                    <Th color="gray.400" borderColor="rgba(255,255,255,0.1)" isNumeric>Views</Th>
+                    <Th color="gray.400" borderColor="rgba(255,255,255,0.1)">Uploaded</Th>
+                    <Th color="gray.400" borderColor="rgba(255,255,255,0.1)">Actions</Th>
+                  </Tr>
+                </Thead>
+                <Tbody>
+                  {movies.map((movie) => (
+                    <Tr key={movie.id} _hover={{ bg: '#232F3E' }}>
+                      <Td borderColor="rgba(255,255,255,0.1)">
+                        <HStack>
+                          <Avatar size="md" src={movie.thumbnailUrl} />
+                          <VStack align="flex-start" spacing={0}>
+                            <Text color="white" fontWeight="bold">{movie.title}</Text>
+                            <Text color="gray.400" fontSize="sm">{movie.year}</Text>
+                          </VStack>
+                        </HStack>
+                      </Td>
+                      <Td borderColor="rgba(255,255,255,0.1)">
+                        <Badge colorScheme={movie.type === 'series' ? 'purple' : 'blue'}>
+                          {movie.type || 'movie'}
+                        </Badge>
+                      </Td>
+                      <Td color="gray.300" borderColor="rgba(255,255,255,0.1)" textTransform="capitalize">
+                        {movie.genre}
+                      </Td>
+                      <Td color="white" borderColor="rgba(255,255,255,0.1)" isNumeric>
+                        {(movie.views || 0).toLocaleString()}
+                      </Td>
+                      <Td color="gray.400" borderColor="rgba(255,255,255,0.1)">
+                        {new Date(movie.createdAt).toLocaleDateString()}
+                      </Td>
+                      <Td borderColor="rgba(255,255,255,0.1)">
+                        <Menu>
+                          <MenuButton
+                            as={IconButton}
+                            icon={<FiMoreVertical />}
+                            variant="ghost"
+                            color="gray.400"
+                            _hover={{ color: 'white' }}
+                          />
+                          <MenuList bg="#232F3E" borderColor="rgba(255,255,255,0.1)">
+                            <MenuItem
+                              icon={<FiEdit />}
+                              onClick={() => openEditModal(movie)}
+                              bg="transparent"
+                              _hover={{ bg: '#1A242F' }}
+                              color="white"
+                            >
+                              Edit
+                            </MenuItem>
+                            <MenuItem
+                              icon={<FiDownload />}
+                              bg="transparent"
+                              _hover={{ bg: '#1A242F' }}
+                              color="white"
+                            >
+                              Download Analytics
+                            </MenuItem>
+                            <Divider borderColor="rgba(255,255,255,0.1)" />
+                            <MenuItem
+                              icon={<FiTrash2 />}
+                              onClick={() => handleDelete(movie.id)}
+                              bg="transparent"
+                              _hover={{ bg: 'red.900' }}
+                              color="red.400"
+                            >
+                              Delete
+                            </MenuItem>
+                          </MenuList>
+                        </Menu>
+                      </Td>
+                    </Tr>
+                  ))}
+                </Tbody>
+              </Table>
+            </TabPanel>
+
+            {/* Analytics Tab */}
+            <TabPanel bg="#1A242F" borderRadius="md" mt={4}>
+              <VStack align="stretch" spacing={6}>
+                <Box>
+                  <Heading size="lg" color="white" mb={4}>Performance Insights</Heading>
+                  <Text color="gray.400">Detailed analytics coming soon...</Text>
+                </Box>
+              </VStack>
+            </TabPanel>
+          </TabPanels>
+        </Tabs>
+
+        {/* Upload Modal */}
+        <Modal isOpen={isOpen} onClose={onClose} size="4xl">
+          <ModalOverlay />
+          <ModalContent bg="#1A242F" color="white">
+            <ModalHeader fontFamily="HeadingFont">Upload New Content</ModalHeader>
+            <ModalCloseButton />
+            <ModalBody>
+              <VStack spacing={4} align="stretch">
+                {/* Basic Info */}
+                <FormControl isRequired>
+                  <FormLabel>Title</FormLabel>
+                  <Input
+                    value={formData.title}
+                    onChange={(e) => setFormData({ ...formData, title: e.target.value })}
+                    bg="#232F3E"
+                    border="1px solid rgba(255,255,255,0.1)"
+                  />
+                </FormControl>
+
+                <FormControl>
+                  <FormLabel>Description</FormLabel>
+                  <Textarea
+                    value={formData.description}
+                    onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                    bg="#232F3E"
+                    border="1px solid rgba(255,255,255,0.1)"
+                    rows={4}
+                  />
+                </FormControl>
+
+                <Grid templateColumns="repeat(3, 1fr)" gap={4}>
+                  <FormControl isRequired>
+                    <FormLabel>Genre</FormLabel>
+                    <Select
+                      value={formData.genre}
+                      onChange={(e) => setFormData({ ...formData, genre: e.target.value })}
+                      bg="#232F3E"
+                      border="1px solid rgba(255,255,255,0.1)"
+                    >
+                      <option value="">Select genre</option>
+                      <option value="action">Action</option>
+                      <option value="comedy">Comedy</option>
+                      <option value="drama">Drama</option>
+                      <option value="horror">Horror</option>
+                      <option value="sci-fi">Sci-Fi</option>
+                      <option value="thriller">Thriller</option>
+                      <option value="romance">Romance</option>
+                      <option value="documentary">Documentary</option>
+                    </Select>
+                  </FormControl>
+
+                  <FormControl>
+                    <FormLabel>Type</FormLabel>
+                    <Select
+                      value={formData.type}
+                      onChange={(e) => setFormData({ ...formData, type: e.target.value })}
+                      bg="#232F3E"
+                      border="1px solid rgba(255,255,255,0.1)"
+                    >
+                      <option value="movie">Movie</option>
+                      <option value="series">TV Series</option>
+                      <option value="sports">Sports</option>
+                    </Select>
+                  </FormControl>
+
+                  <FormControl>
+                    <FormLabel>Year</FormLabel>
                     <Input
-                      value={archiveUrl}
-                      onChange={(e) => setArchiveUrl(e.target.value)}
-                      placeholder="Paste any archive.org link"
-                      bg={inputBg}
-                      border="1px solid"
-                      borderColor={borderColor}
-                      size="lg"
+                      type="number"
+                      value={formData.year}
+                      onChange={(e) => setFormData({ ...formData, year: parseInt(e.target.value) })}
+                      bg="#232F3E"
+                      border="1px solid rgba(255,255,255,0.1)"
                     />
+                  </FormControl>
+                </Grid>
 
-                    {archiveUrl && (
-                      <Alert 
-                        status={isValidArchiveUrl(archiveUrl) ? "success" : "error"} 
-                        borderRadius="md"
-                      >
-                        <AlertIcon />
-                        <Text fontSize="sm">
-                          {isValidArchiveUrl(archiveUrl) 
-                            ? "✓ Valid Archive.org URL" 
-                            : "✗ Invalid link"}
-                        </Text>
-                      </Alert>
-                    )}
-                  </VStack>
-                </TabPanel>
+                {/* Video Source */}
+                <FormControl>
+                  <FormLabel>Video Source</FormLabel>
+                  <Tabs variant="enclosed" onChange={(index) => setVideoSource(['archive', 'googledrive', 'cloudinary'][index])}>
+                    <TabList>
+                      <Tab>Archive.org</Tab>
+                      <Tab>Google Drive</Tab>
+                      <Tab>Upload File</Tab>
+                    </TabList>
+                    <TabPanels>
+                      <TabPanel>
+                        <Input
+                          placeholder="https://archive.org/details/..."
+                          value={archiveUrl}
+                          onChange={(e) => setArchiveUrl(e.target.value)}
+                          bg="#232F3E"
+                        />
+                      </TabPanel>
+                      <TabPanel>
+                        <Input
+                          placeholder="https://drive.google.com/file/d/..."
+                          value={googleDriveUrl}
+                          onChange={(e) => setGoogleDriveUrl(e.target.value)}
+                          bg="#232F3E"
+                        />
+                      </TabPanel>
+                      <TabPanel>
+                        <Box
+                          {...getVideoRootProps()}
+                          p={8}
+                          border="2px dashed"
+                          borderColor="#00A8E1"
+                          borderRadius="md"
+                          textAlign="center"
+                          cursor="pointer"
+                          _hover={{ bg: '#232F3E' }}
+                        >
+                          <input {...getVideoInputProps()} />
+                          <FiUpload size={32} style={{ margin: '0 auto 10px' }} />
+                          <Text>{videoFile ? videoFile.name : 'Click or drag video file'}</Text>
+                        </Box>
+                      </TabPanel>
+                    </TabPanels>
+                  </Tabs>
+                </FormControl>
 
-                {/* Google Drive Tab */}
-                <TabPanel px={0} pt={4}>
-                  <VStack align="stretch" spacing={3}>
-                    <Input
-                      value={googleDriveUrl}
-                      onChange={(e) => setGoogleDriveUrl(e.target.value)}
-                      placeholder="Paste Google Drive link"
-                      bg={inputBg}
-                      border="1px solid"
-                      borderColor={borderColor}
-                      size="lg"
-                    />
-
-                    {googleDriveUrl && (
-                      <Alert 
-                        status={isValidGoogleDriveUrl(googleDriveUrl) ? "success" : "error"} 
-                        borderRadius="md"
-                      >
-                        <AlertIcon />
-                        <Text fontSize="sm">
-                          {isValidGoogleDriveUrl(googleDriveUrl) 
-                            ? `✓ Valid (ID: ${extractGoogleDriveId(googleDriveUrl)})` 
-                            : "✗ Invalid link"}
-                        </Text>
-                      </Alert>
-                    )}
-                  </VStack>
-                </TabPanel>
-
-                {/* Cloudinary Tab */}
-                <TabPanel px={0} pt={4}>
+                {/* Thumbnail */}
+                <FormControl isRequired>
+                  <FormLabel>Thumbnail</FormLabel>
                   <Box
-                    {...getVideoRootProps()}
-                    p={10}
+                    {...getThumbnailRootProps()}
+                    p={8}
                     border="2px dashed"
-                    borderColor={videoFile ? borderColor : 'gray.600'}
-                    borderRadius="lg"
+                    borderColor="#FFB800"
+                    borderRadius="md"
                     textAlign="center"
                     cursor="pointer"
-                    bg={inputBg}
-                    _hover={{ borderColor: borderColor }}
+                    _hover={{ bg: '#232F3E' }}
                   >
-                    <input {...getVideoInputProps()} />
-                    {videoFile ? (
-                      <VStack spacing={2}>
-                        <Text fontSize="4xl">✅</Text>
-                        <Text fontWeight="bold">
-                          {videoFile.name}
-                        </Text>
-                      </VStack>
-                    ) : (
-                      <VStack spacing={2}>
-                        <Text fontSize="4xl">📹</Text>
-                        <Text>Drag & drop video (max 100MB)</Text>
-                      </VStack>
-                    )}
+                    <input {...getThumbnailInputProps()} />
+                    <Text>{thumbnailFile ? thumbnailFile.name : 'Click or drag thumbnail'}</Text>
                   </Box>
-                </TabPanel>
-              </TabPanels>
-            </Tabs>
-          </FormControl>
+                </FormControl>
 
-          {/* Thumbnail */}
-          <FormControl isRequired>
-            <FormLabel fontSize="lg">Thumbnail *</FormLabel>
-            <Box
-              {...getThumbnailRootProps()}
-              p={8}
-              border="2px dashed"
-              borderColor={thumbnailFile ? borderColor : 'gray.600'}
-              borderRadius="lg"
-              textAlign="center"
-              cursor="pointer"
-              bg={inputBg}
-              _hover={{ borderColor: borderColor }}
-            >
-              <input {...getThumbnailInputProps()} />
-              {thumbnailFile ? (
-                <VStack spacing={2}>
-                  <Image
-                    src={URL.createObjectURL(thumbnailFile)}
-                    alt="Preview"
-                    maxH="150px"
-                    borderRadius="md"
-                  />
-                  <Text fontWeight="bold">
-                    {thumbnailFile.name}
-                  </Text>
-                </VStack>
-              ) : (
-                <VStack spacing={2}>
-                  <Text fontSize="4xl">🖼️</Text>
-                  <Text>Drag & drop thumbnail</Text>
-                </VStack>
-              )}
-            </Box>
-          </FormControl>
-
-          {/* Progress */}
-          {isUploading && (
-            <Box p={6} bg={cardBg} borderRadius="lg" border="2px solid" borderColor={borderColor}>
-              <VStack spacing={3}>
-                <Text fontSize="lg" fontWeight="bold">
-                  {currentStep}
-                </Text>
-                <Progress
-                  value={uploadProgress}
-                  colorScheme="gray"
-                  size="lg"
-                  w="100%"
-                  hasStripe
-                  isAnimated
-                />
-                <Text fontSize="xl" fontWeight="bold">
-                  {Math.round(uploadProgress)}%
-                </Text>
+                {isUploading && (
+                  <Progress value={uploadProgress} colorScheme="blue" size="lg" />
+                )}
               </VStack>
-            </Box>
-          )}
+            </ModalBody>
+            <ModalFooter>
+              <Button variant="ghost" mr={3} onClick={onClose}>
+                Cancel
+              </Button>
+              <Button
+                variant="primeGold"
+                onClick={handleUpload}
+                isLoading={isUploading}
+                loadingText="Uploading..."
+              >
+                Upload Content
+              </Button>
+            </ModalFooter>
+          </ModalContent>
+        </Modal>
 
-          {/* Upload Button */}
-          <Button
-            bg={buttonBg}
-            color={buttonColor}
-            size="lg"
-            h="60px"
-            fontSize="lg"
-            onClick={handleUpload}
-            isLoading={isUploading}
-            _hover={{ bg: buttonHoverBg, transform: 'translateY(-2px)' }}
-            _active={{ transform: 'translateY(0)' }}
-            isDisabled={
-              !title || !genre || !thumbnailFile ||
-              (videoSource === 'archive' && !isValidArchiveUrl(archiveUrl)) ||
-              (videoSource === 'googledrive' && !isValidGoogleDriveUrl(googleDriveUrl)) ||
-              (videoSource === 'cloudinary' && !videoFile)
-            }
-          >
-            🚀 Upload Content
-          </Button>
-        </VStack>
-      </Box>
+        {/* Edit Modal */}
+        <Modal isOpen={isEditOpen} onClose={onEditClose} size="2xl">
+          <ModalOverlay />
+          <ModalContent bg="#1A242F" color="white">
+            <ModalHeader>Edit Content</ModalHeader>
+            <ModalCloseButton />
+            <ModalBody>
+              <VStack spacing={4} align="stretch">
+                <FormControl>
+                  <FormLabel>Title</FormLabel>
+                  <Input
+                    value={formData.title}
+                    onChange={(e) => setFormData({ ...formData, title: e.target.value })}
+                    bg="#232F3E"
+                  />
+                </FormControl>
+
+                <FormControl>
+                  <FormLabel>Description</FormLabel>
+                  <Textarea
+                    value={formData.description}
+                    onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                    bg="#232F3E"
+                    rows={4}
+                  />
+                </FormControl>
+
+                <Grid templateColumns="repeat(2, 1fr)" gap={4}>
+                  <FormControl>
+                    <FormLabel>Genre</FormLabel>
+                    <Select
+                      value={formData.genre}
+                      onChange={(e) => setFormData({ ...formData, genre: e.target.value })}
+                      bg="#232F3E"
+                    >
+                      <option value="action">Action</option>
+                      <option value="comedy">Comedy</option>
+                      <option value="drama">Drama</option>
+                      <option value="horror">Horror</option>
+                      <option value="sci-fi">Sci-Fi</option>
+                    </Select>
+                  </FormControl>
+
+                  <FormControl>
+                    <FormLabel>Year</FormLabel>
+                    <Input
+                      type="number"
+                      value={formData.year}
+                      onChange={(e) => setFormData({ ...formData, year: parseInt(e.target.value) })}
+                      bg="#232F3E"
+                    />
+                  </FormControl>
+                </Grid>
+              </VStack>
+            </ModalBody>
+            <ModalFooter>
+              <Button variant="ghost" mr={3} onClick={onEditClose}>
+                Cancel
+              </Button>
+              <Button variant="prime" onClick={handleEdit}>
+                Save Changes
+              </Button>
+            </ModalFooter>
+          </ModalContent>
+        </Modal>
+      </Container>
     </Box>
   );
 };

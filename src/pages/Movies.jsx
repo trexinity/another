@@ -6,35 +6,27 @@ import {
   SimpleGrid,
   Select,
   HStack,
-  Input,
-  InputGroup,
-  InputLeftElement,
+  Button,
   Text,
   VStack,
-  useColorModeValue,
   Spinner,
   Center,
+  ButtonGroup,
 } from '@chakra-ui/react';
 import { ref, get } from 'firebase/database';
 import { db } from '../config/firebase';
 import { MovieCard } from '../components/MovieCard';
-import { FiSearch } from 'react-icons/fi';
 import { useWatchlist } from '../hooks/useWatchlist';
+import { FiFilter } from 'react-icons/fi';
 
-export const Browse = () => {
+export const Movies = () => {
   const [movies, setMovies] = useState([]);
   const [filteredMovies, setFilteredMovies] = useState([]);
   const [selectedGenre, setSelectedGenre] = useState('all');
   const [selectedYear, setSelectedYear] = useState('all');
   const [sortBy, setSortBy] = useState('recent');
-  const [searchQuery, setSearchQuery] = useState('');
   const [loading, setLoading] = useState(true);
   const { watchlist, addToWatchlist, removeFromWatchlist } = useWatchlist();
-
-  const bg = useColorModeValue('white', '#0a0a0a');
-  const cardBg = useColorModeValue('white', 'gray.900');
-  const borderColor = useColorModeValue('gray.200', 'gray.800');
-  const textColor = useColorModeValue('gray.800', 'white');
 
   useEffect(() => {
     fetchMovies();
@@ -42,7 +34,7 @@ export const Browse = () => {
 
   useEffect(() => {
     filterAndSortMovies();
-  }, [movies, selectedGenre, selectedYear, sortBy, searchQuery]);
+  }, [movies, selectedGenre, selectedYear, sortBy]);
 
   const fetchMovies = async () => {
     try {
@@ -51,14 +43,13 @@ export const Browse = () => {
 
       if (snapshot.exists()) {
         const data = snapshot.val();
-        const moviesArray = Object.keys(data).map((key) => ({
-          id: key,
-          ...data[key],
-        }));
+        const moviesArray = Object.keys(data)
+          .map((key) => ({ id: key, ...data[key] }))
+          .filter((m) => m.type === 'movie' || !m.type);
         setMovies(moviesArray);
       }
     } catch (error) {
-      console.error('Error fetching movies:', error);
+      console.error('Error:', error);
     } finally {
       setLoading(false);
     }
@@ -67,25 +58,14 @@ export const Browse = () => {
   const filterAndSortMovies = () => {
     let filtered = [...movies];
 
-    // Filter by genre
     if (selectedGenre !== 'all') {
       filtered = filtered.filter((m) => m.genre === selectedGenre);
     }
 
-    // Filter by year
     if (selectedYear !== 'all') {
       filtered = filtered.filter((m) => m.year === parseInt(selectedYear));
     }
 
-    // Filter by search
-    if (searchQuery) {
-      filtered = filtered.filter((m) =>
-        m.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        (m.description && m.description.toLowerCase().includes(searchQuery.toLowerCase()))
-      );
-    }
-
-    // Sort
     switch (sortBy) {
       case 'recent':
         filtered.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
@@ -114,52 +94,41 @@ export const Browse = () => {
     }
   };
 
-  // Get unique genres and years
   const genres = [...new Set(movies.map((m) => m.genre).filter(Boolean))];
   const years = [...new Set(movies.map((m) => m.year).filter(Boolean))].sort((a, b) => b - a);
 
   if (loading) {
     return (
-      <Center minH="100vh" bg={bg}>
-        <Spinner size="xl" thickness="4px" />
+      <Center minH="100vh" bg="#0F171E">
+        <Spinner size="xl" color="#00A8E1" />
       </Center>
     );
   }
 
   return (
-    <Box minH="100vh" bg={bg} pt={24} pb={12}>
-      <Container maxW="1600px">
+    <Box minH="100vh" bg="#0F171E" pt={24} pb={12}>
+      <Container maxW="1920px" px={{ base: 4, md: 12 }}>
         {/* Header */}
         <VStack align="stretch" spacing={6} mb={8}>
-          <Heading size="2xl" color={textColor} fontWeight="black">
-            Browse All Content
+          <Heading size="2xl" color="white" fontFamily="HeadingFont">
+            Movies
           </Heading>
 
           {/* Filters */}
           <HStack spacing={4} flexWrap="wrap">
-            {/* Search */}
-            <InputGroup maxW="300px" size="md">
-              <InputLeftElement>
-                <FiSearch />
-              </InputLeftElement>
-              <Input
-                placeholder="Search movies..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                bg={cardBg}
-                border="1px solid"
-                borderColor={borderColor}
-              />
-            </InputGroup>
+            <HStack>
+              <FiFilter color="#00A8E1" />
+              <Text color="gray.400" fontSize="sm">Filter:</Text>
+            </HStack>
 
-            {/* Genre Filter */}
             <Select
               value={selectedGenre}
               onChange={(e) => setSelectedGenre(e.target.value)}
               maxW="200px"
-              bg={cardBg}
-              border="1px solid"
-              borderColor={borderColor}
+              bg="#1A242F"
+              border="1px solid rgba(255,255,255,0.1)"
+              color="white"
+              size="sm"
             >
               <option value="all">All Genres</option>
               {genres.map((genre) => (
@@ -169,48 +138,60 @@ export const Browse = () => {
               ))}
             </Select>
 
-            {/* Year Filter */}
             <Select
               value={selectedYear}
               onChange={(e) => setSelectedYear(e.target.value)}
               maxW="150px"
-              bg={cardBg}
-              border="1px solid"
-              borderColor={borderColor}
+              bg="#1A242F"
+              border="1px solid rgba(255,255,255,0.1)"
+              color="white"
+              size="sm"
             >
               <option value="all">All Years</option>
               {years.map((year) => (
-                <option key={year} value={year}>
-                  {year}
-                </option>
+                <option key={year} value={year}>{year}</option>
               ))}
             </Select>
 
-            {/* Sort */}
-            <Select
-              value={sortBy}
-              onChange={(e) => setSortBy(e.target.value)}
-              maxW="200px"
-              bg={cardBg}
-              border="1px solid"
-              borderColor={borderColor}
-            >
-              <option value="recent">Recently Added</option>
-              <option value="title">Title (A-Z)</option>
-              <option value="year">Year</option>
-              <option value="popular">Most Popular</option>
-            </Select>
+            <ButtonGroup size="sm" isAttached variant="outline">
+              <Button
+                onClick={() => setSortBy('recent')}
+                bg={sortBy === 'recent' ? '#00A8E1' : 'transparent'}
+                color={sortBy === 'recent' ? 'white' : 'gray.400'}
+                _hover={{ bg: sortBy === 'recent' ? '#0095C8' : '#1A242F' }}
+                borderColor="rgba(255,255,255,0.1)"
+              >
+                Recent
+              </Button>
+              <Button
+                onClick={() => setSortBy('popular')}
+                bg={sortBy === 'popular' ? '#00A8E1' : 'transparent'}
+                color={sortBy === 'popular' ? 'white' : 'gray.400'}
+                _hover={{ bg: sortBy === 'popular' ? '#0095C8' : '#1A242F' }}
+                borderColor="rgba(255,255,255,0.1)"
+              >
+                Popular
+              </Button>
+              <Button
+                onClick={() => setSortBy('title')}
+                bg={sortBy === 'title' ? '#00A8E1' : 'transparent'}
+                color={sortBy === 'title' ? 'white' : 'gray.400'}
+                _hover={{ bg: sortBy === 'title' ? '#0095C8' : '#1A242F' }}
+                borderColor="rgba(255,255,255,0.1)"
+              >
+                A-Z
+              </Button>
+            </ButtonGroup>
           </HStack>
 
-          {/* Results Count */}
-          <Text color={textColor} fontSize="lg">
-            {filteredMovies.length} {filteredMovies.length === 1 ? 'result' : 'results'}
+          <Text color="gray.400" fontSize="sm">
+            {filteredMovies.length} {filteredMovies.length === 1 ? 'movie' : 'movies'}
           </Text>
         </VStack>
 
         {/* Movies Grid */}
         {filteredMovies.length > 0 ? (
-          <SimpleGrid columns={{ base: 2, md: 3, lg: 4, xl: 5 }} spacing={6}>
+          <SimpleGrid columns={{ base: 1, sm: 2, md: 3, lg: 4, xl: 5 }} spacing={6}>
             {filteredMovies.map((movie) => (
               <MovieCard
                 key={movie.id}
@@ -223,12 +204,8 @@ export const Browse = () => {
         ) : (
           <Center py={20}>
             <VStack spacing={4}>
-              <Text fontSize="2xl" color={textColor}>
-                No movies found
-              </Text>
-              <Text color="gray.500">
-                Try adjusting your filters
-              </Text>
+              <Text fontSize="2xl" color="white">No movies found</Text>
+              <Text color="gray.500">Try adjusting your filters</Text>
             </VStack>
           </Center>
         )}

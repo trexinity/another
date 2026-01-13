@@ -2,219 +2,154 @@ import { useState, useEffect } from 'react';
 import {
   Box,
   Container,
+  Heading,
   Input,
   InputGroup,
   InputLeftElement,
   SimpleGrid,
   Text,
   VStack,
-  Select,
-  HStack,
-  Image,
-  Heading,
-  Badge,
+  useColorModeValue,
 } from '@chakra-ui/react';
-import { SearchIcon } from '@chakra-ui/icons';
+import { useSearchParams } from 'react-router-dom';
 import { ref, get } from 'firebase/database';
 import { db } from '../config/firebase';
-import { useNavigate, useSearchParams } from 'react-router-dom';
-import { debounce } from 'lodash';
+import { MovieCard } from '../components/MovieCard';
+import { FiSearch } from 'react-icons/fi';
+import { useWatchlist } from '../hooks/useWatchlist';
 
 export const Search = () => {
-  const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
-  const [searchQuery, setSearchQuery] = useState(searchParams.get('q') || '');
-  const [allMovies, setAllMovies] = useState([]);
-  const [filteredMovies, setFilteredMovies] = useState([]);
-  const [selectedGenre, setSelectedGenre] = useState('all');
-  const [selectedYear, setSelectedYear] = useState('all');
-  const [sortBy, setSortBy] = useState('relevance');
+  const [query, setQuery] = useState(searchParams.get('q') || '');
+  const [movies, setMovies] = useState([]);
+  const [results, setResults] = useState([]);
+  const { watchlist, addToWatchlist, removeFromWatchlist } = useWatchlist();
+
+  const bg = useColorModeValue('white', '#0a0a0a');
+  const textColor = useColorModeValue('gray.800', 'white');
+  const inputBg = useColorModeValue('white', 'gray.900');
+  const borderColor = useColorModeValue('gray.200', 'gray.800');
 
   useEffect(() => {
-    const loadMovies = async () => {
-      const moviesRef = ref(db, 'movies');
-      const snapshot = await get(moviesRef);
-      if (snapshot.exists()) {
-        const moviesData = Object.entries(snapshot.val()).map(([id, data]) => ({
-          id,
-          ...data,
-        }));
-        setAllMovies(moviesData);
-      }
-    };
-    loadMovies();
+    fetchMovies();
   }, []);
 
   useEffect(() => {
-    let results = [...allMovies];
+    searchMovies(query);
+  }, [query, movies]);
 
-    if (searchQuery) {
-      results = results.filter(
-        (movie) =>
-          movie.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-          movie.description?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-          movie.genre?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-          movie.cast?.toLowerCase().includes(searchQuery.toLowerCase())
-      );
+  const fetchMovies = async () => {
+    try {
+      const moviesRef = ref(db, 'movies');
+      const snapshot = await get(moviesRef);
+
+      if (snapshot.exists()) {
+        const data = snapshot.val();
+        const moviesArray = Object.keys(data).map((key) => ({
+          id: key,
+          ...data[key],
+        }));
+        setMovies(moviesArray);
+      }
+    } catch (error) {
+      console.error('Error fetching movies:', error);
+    }
+  };
+
+  const searchMovies = (searchQuery) => {
+    if (!searchQuery.trim()) {
+      setResults([]);
+      return;
     }
 
-    if (selectedGenre !== 'all') {
-      results = results.filter((movie) => movie.genre === selectedGenre);
-    }
+    const filtered = movies.filter((movie) =>
+      movie.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (movie.description && movie.description.toLowerCase().includes(searchQuery.toLowerCase())) ||
+      (movie.genre && movie.genre.toLowerCase().includes(searchQuery.toLowerCase())) ||
+      (movie.cast && movie.cast.toLowerCase().includes(searchQuery.toLowerCase())) ||
+      (movie.director && movie.director.toLowerCase().includes(searchQuery.toLowerCase()))
+    );
 
-    if (selectedYear !== 'all') {
-      results = results.filter((movie) => movie.year === parseInt(selectedYear));
-    }
+    setResults(filtered);
+  };
 
-    switch (sortBy) {
-      case 'newest':
-        results.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
-        break;
-      case 'oldest':
-        results.sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt));
-        break;
-      case 'views':
-        results.sort((a, b) => (b.views || 0) - (a.views || 0));
-        break;
-      case 'title':
-        results.sort((a, b) => a.title.localeCompare(b.title));
-        break;
-      default:
-        break;
-    }
+  const handleSearch = (value) => {
+    setQuery(value);
+    setSearchParams(value ? { q: value } : {});
+  };
 
-    setFilteredMovies(results);
-  }, [searchQuery, selectedGenre, selectedYear, sortBy, allMovies]);
-
-  const handleSearch = debounce((value) => {
-    setSearchQuery(value);
-    if (value) {
-      setSearchParams({ q: value });
+  const handleWatchlistToggle = (movie) => {
+    if (watchlist.includes(movie.id)) {
+      removeFromWatchlist(movie.id);
     } else {
-      setSearchParams({});
+      addToWatchlist(movie.id);
     }
-  }, 300);
-
-  const years = [...new Set(allMovies.map((m) => m.year))].sort((a, b) => b - a);
+  };
 
   return (
-    <Box minH="100vh" pt={24} pb={12} bg="brand.background">
-      <Container maxW="1400px">
-        <VStack spacing={6} align="stretch">
-          <InputGroup size="lg">
-            <InputLeftElement pointerEvents="none">
-              <SearchIcon color="gray.400" />
-            </InputLeftElement>
-            <Input
-              placeholder="Search for movies, shows, genres..."
-              defaultValue={searchQuery}
-              onChange={(e) => handleSearch(e.target.value)}
-              bg="brand.cardBg"
-              border="1px solid"
-              borderColor="gray.700"
-              _focus={{ borderColor: 'brand.primary' }}
-              fontSize="lg"
-            />
-          </InputGroup>
+    <Box minH="100vh" bg={bg} pt={24} pb={12}>
+      <Container maxW="1600px">
+        <VStack align="stretch" spacing={8}>
+          {/* Search Header */}
+          <VStack align="stretch" spacing={4}>
+            <Heading size="2xl" color={textColor} fontWeight="black">
+              Search
+            </Heading>
 
-          <HStack spacing={4} flexWrap="wrap">
-            <Select
-              value={selectedGenre}
-              onChange={(e) => setSelectedGenre(e.target.value)}
-              bg="brand.cardBg"
-              maxW="200px"
-            >
-              <option value="all">All Genres</option>
-              <option value="action">Action</option>
-              <option value="comedy">Comedy</option>
-              <option value="drama">Drama</option>
-              <option value="horror">Horror</option>
-              <option value="sci-fi">Sci-Fi</option>
-              <option value="thriller">Thriller</option>
-              <option value="romance">Romance</option>
-              <option value="documentary">Documentary</option>
-              <option value="animation">Animation</option>
-            </Select>
+            <InputGroup size="lg" maxW="600px">
+              <InputLeftElement>
+                <FiSearch size={24} />
+              </InputLeftElement>
+              <Input
+                placeholder="Search for movies, genres, actors..."
+                value={query}
+                onChange={(e) => handleSearch(e.target.value)}
+                bg={inputBg}
+                border="2px solid"
+                borderColor={borderColor}
+                _focus={{ borderColor: 'white' }}
+                fontSize="lg"
+                autoFocus
+              />
+            </InputGroup>
 
-            <Select
-              value={selectedYear}
-              onChange={(e) => setSelectedYear(e.target.value)}
-              bg="brand.cardBg"
-              maxW="150px"
-            >
-              <option value="all">All Years</option>
-              {years.map((year) => (
-                <option key={year} value={year}>
-                  {year}
-                </option>
-              ))}
-            </Select>
+            {query && (
+              <Text color={textColor} fontSize="lg">
+                {results.length} {results.length === 1 ? 'result' : 'results'} for "{query}"
+              </Text>
+            )}
+          </VStack>
 
-            <Select
-              value={sortBy}
-              onChange={(e) => setSortBy(e.target.value)}
-              bg="brand.cardBg"
-              maxW="200px"
-            >
-              <option value="relevance">Relevance</option>
-              <option value="newest">Newest First</option>
-              <option value="oldest">Oldest First</option>
-              <option value="views">Most Viewed</option>
-              <option value="title">Title (A-Z)</option>
-            </Select>
-          </HStack>
-
-          <Text color="gray.400">
-            {filteredMovies.length} result{filteredMovies.length !== 1 ? 's' : ''} found
-          </Text>
-
-          {filteredMovies.length > 0 ? (
+          {/* Results */}
+          {query && results.length > 0 ? (
             <SimpleGrid columns={{ base: 2, md: 3, lg: 4, xl: 5 }} spacing={6}>
-              {filteredMovies.map((movie) => (
-                <Box
+              {results.map((movie) => (
+                <MovieCard
                   key={movie.id}
-                  cursor="pointer"
-                  onClick={() => navigate(`/watch/${movie.id}`)}
-                  borderRadius="lg"
-                  overflow="hidden"
-                  transition="all 0.3s"
-                  _hover={{
-                    transform: 'scale(1.05)',
-                    boxShadow: '0 8px 30px rgba(229, 9, 20, 0.4)',
-                  }}
-                >
-                  <Image
-                    src={movie.thumbnailUrl}
-                    alt={movie.title}
-                    w="100%"
-                    h="280px"
-                    objectFit="cover"
-                  />
-                  <Box p={3} bg="brand.cardBg">
-                    <Text fontWeight="bold" noOfLines={1} mb={2}>
-                      {movie.title}
-                    </Text>
-                    <HStack spacing={2}>
-                      <Badge colorScheme="red" fontSize="xs">
-                        {movie.genre}
-                      </Badge>
-                      <Text fontSize="xs" color="gray.400">
-                        {movie.year}
-                      </Text>
-                    </HStack>
-                  </Box>
-                </Box>
+                  movie={movie}
+                  onAddToList={handleWatchlistToggle}
+                  isInList={watchlist.includes(movie.id)}
+                />
               ))}
             </SimpleGrid>
-          ) : (
-            <Box textAlign="center" py={20}>
-              <Heading size="lg" mb={2}>
+          ) : query ? (
+            <VStack py={20} spacing={4}>
+              <Text fontSize="2xl" color={textColor}>
                 No results found
-              </Heading>
-              <Text color="gray.400">
-                Try adjusting your search or filters
               </Text>
-            </Box>
+              <Text color="gray.500">
+                Try searching for something else
+              </Text>
+            </VStack>
+          ) : (
+            <VStack py={20} spacing={4}>
+              <Text fontSize="2xl" color={textColor}>
+                Start searching
+              </Text>
+              <Text color="gray.500">
+                Search for movies, genres, or actors
+              </Text>
+            </VStack>
           )}
         </VStack>
       </Container>
