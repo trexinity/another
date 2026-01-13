@@ -18,12 +18,13 @@ import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
 import { FiEye, FiEyeOff } from 'react-icons/fi';
 
-export const Login = () => {
+export const Signup = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
-  const { login } = useAuth();
+  const { signup } = useAuth();
   const navigate = useNavigate();
   const toast = useToast();
 
@@ -34,19 +35,40 @@ export const Login = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+
+    if (password !== confirmPassword) {
+      toast({
+        title: 'Passwords do not match',
+        status: 'error',
+        duration: 3000,
+      });
+      return;
+    }
+
+    if (password.length < 6) {
+      toast({
+        title: 'Password too short',
+        description: 'Password must be at least 6 characters',
+        status: 'error',
+        duration: 3000,
+      });
+      return;
+    }
+
     setLoading(true);
 
     try {
-      await login(email, password);
+      await signup(email, password);
       toast({
-        title: 'Welcome back!',
+        title: 'Account created!',
+        description: 'Welcome to StreamHub',
         status: 'success',
         duration: 2000,
       });
       navigate('/');
     } catch (error) {
       toast({
-        title: 'Login failed',
+        title: 'Signup failed',
         description: error.message,
         status: 'error',
         duration: 4000,
@@ -98,10 +120,10 @@ export const Login = () => {
               mb={2}
               fontFamily="CustomLogo"
             >
-              Welcome Back
+              Join StreamHub
             </Heading>
             <Text color="gray.500" fontSize="sm">
-              Sign in to continue streaming
+              Create your account to start streaming
             </Text>
           </Box>
 
@@ -128,7 +150,7 @@ export const Login = () => {
                     type={showPassword ? 'text' : 'password'}
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
-                    placeholder="Enter password"
+                    placeholder="At least 6 characters"
                     bg={inputBg}
                     border="1px solid"
                     borderColor={borderColor}
@@ -139,10 +161,24 @@ export const Login = () => {
                       variant="ghost"
                       icon={showPassword ? <FiEyeOff /> : <FiEye />}
                       onClick={() => setShowPassword(!showPassword)}
-                      aria-label="Toggle password visibility"
+                      aria-label="Toggle password"
                     />
                   </InputRightElement>
                 </InputGroup>
+              </FormControl>
+
+              <FormControl isRequired>
+                <FormLabel>Confirm Password</FormLabel>
+                <Input
+                  type={showPassword ? 'text' : 'password'}
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  placeholder="Re-enter password"
+                  size="lg"
+                  bg={inputBg}
+                  border="1px solid"
+                  borderColor={borderColor}
+                />
               </FormControl>
 
               <Button
@@ -150,23 +186,23 @@ export const Login = () => {
                 size="lg"
                 w="full"
                 isLoading={loading}
-                loadingText="Signing in..."
+                loadingText="Creating account..."
               >
-                Sign In
+                Sign Up
               </Button>
             </VStack>
           </form>
 
           <Box textAlign="center">
             <Text color="gray.500" fontSize="sm">
-              Don't have an account?{' '}
-              <Link to="/signup">
+              Already have an account?{' '}
+              <Link to="/login">
                 <Text
                   as="span"
                   fontWeight="bold"
                   _hover={{ textDecoration: 'underline' }}
                 >
-                  Sign Up
+                  Sign In
                 </Text>
               </Link>
             </Text>

@@ -1,131 +1,230 @@
-import { Box, Flex, Input, InputGroup, InputLeftElement, Avatar, Button, Menu, MenuButton, MenuList, MenuItem, HStack, Link as ChakraLink } from '@chakra-ui/react';
-import { SearchIcon } from '@chakra-ui/icons';
+import { 
+  Box, 
+  Flex, 
+  HStack, 
+  Button, 
+  Menu, 
+  MenuButton, 
+  MenuList, 
+  MenuItem, 
+  Avatar,
+  Text,
+  IconButton,
+  useColorMode,
+  useColorModeValue,
+} from '@chakra-ui/react';
+import { Link, useNavigate } from 'react-router-dom';
+import { useAuth } from '../hooks/useAuth';
+import { FiSun, FiMoon, FiMonitor } from 'react-icons/fi';
 import { useState, useEffect } from 'react';
-import { useAuth } from "../hooks/useAuth";
-import { useNavigate, Link } from 'react-router-dom';
-import { isAdmin } from '../config/admins';
 
 export const Navbar = () => {
-  const [scrolled, setScrolled] = useState(false);
-  const [searchQuery, setSearchQuery] = useState('');
   const { user, logout } = useAuth();
   const navigate = useNavigate();
+  const { colorMode, setColorMode } = useColorMode();
+  const [themeMode, setThemeMode] = useState('system');
+
+  const bg = useColorModeValue('white', 'black');
+  const borderColor = useColorModeValue('gray.200', 'gray.800');
+  const hoverBg = useColorModeValue('gray.100', 'gray.900');
+  const textColor = useColorModeValue('gray.600', 'gray.400');
 
   useEffect(() => {
-    const handleScroll = () => {
-      setScrolled(window.scrollY > 50);
-    };
-    window.addEventListener('scroll', handleScroll);
-    return () => window.removeEventListener('scroll', handleScroll);
+    const savedMode = localStorage.getItem('theme-mode') || 'system';
+    setThemeMode(savedMode);
+    applyTheme(savedMode);
   }, []);
 
-  const handleSearch = (e) => {
-    if (e.key === 'Enter' && searchQuery.trim()) {
-      navigate(`/search?q=${searchQuery}`);
+  const applyTheme = (mode) => {
+    if (mode === 'system') {
+      const systemPreference = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+      setColorMode(systemPreference);
+    } else {
+      setColorMode(mode);
+    }
+  };
+
+  const handleThemeChange = (mode) => {
+    setThemeMode(mode);
+    localStorage.setItem('theme-mode', mode);
+    applyTheme(mode);
+  };
+
+  const handleLogout = async () => {
+    try {
+      await logout();
+      navigate('/login');
+    } catch (error) {
+      console.error('Logout error:', error);
     }
   };
 
   return (
     <Box
+      as="nav"
       position="fixed"
       top={0}
       left={0}
       right={0}
       zIndex={1000}
-      bg={scrolled ? 'rgba(20, 20, 20, 0.98)' : 'linear-gradient(180deg, rgba(0,0,0,0.8) 0%, transparent 100%)'}
-      backdropFilter={scrolled ? 'blur(10px)' : 'none'}
-      transition="all 0.3s"
+      bg={bg}
+      borderBottom="1px solid"
+      borderColor={borderColor}
+      backdropFilter="blur(10px)"
+      bgOpacity={0.9}
     >
       <Flex
-        maxW="1920px"
+        maxW="1400px"
         mx="auto"
-        px={8}
+        px={6}
         py={4}
         align="center"
         justify="space-between"
       >
-        <Flex align="center" gap={8}>
-          <Box
-            fontSize="2xl"
-            fontWeight="900"
-            color="brand.primary"
+        {/* Logo */}
+        <Link to="/">
+          <Text
+            fontSize="3xl"
+            fontWeight="bold"
+            fontFamily="CustomLogo"
+            letterSpacing="tight"
             cursor="pointer"
-            onClick={() => navigate('/')}
             _hover={{ transform: 'scale(1.05)' }}
-            transition="transform 0.2s"
+            transition="all 0.2s"
           >
-            ANOTHER
-          </Box>
-          
-          <Flex gap={6} display={{ base: 'none', md: 'flex' }}>
-            <ChakraLink as={Link} to="/" _hover={{ color: 'white' }} transition="color 0.2s">
-              Home
-            </ChakraLink>
-            <ChakraLink as={Link} to="/browse" _hover={{ color: 'white' }} transition="color 0.2s">
-              Browse
-            </ChakraLink>
-            <ChakraLink as={Link} to="/categories" _hover={{ color: 'white' }} transition="color 0.2s">
-              Categories
-            </ChakraLink>
-            {user && isAdmin(user.email) && (
-              <ChakraLink 
-                as={Link} 
-                to="/admin" 
-                _hover={{ color: 'white' }} 
-                transition="color 0.2s"
-                color="green.400"
-                fontWeight="bold"
-              >
-                Upload
-              </ChakraLink>
-            )}
-          </Flex>
-        </Flex>
+            STREAMHUB
+          </Text>
+        </Link>
 
-        <Flex align="center" gap={4}>
-          <InputGroup maxW="300px" display={{ base: 'none', md: 'block' }}>
-            <InputLeftElement pointerEvents="none">
-              <SearchIcon color="gray.400" />
-            </InputLeftElement>
-            <Input
-              placeholder="Search..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              onKeyPress={handleSearch}
-              bg="rgba(255,255,255,0.1)"
-              border="1px solid rgba(255,255,255,0.2)"
-              _focus={{ bg: 'rgba(255,255,255,0.15)', borderColor: 'brand.primary' }}
+        {/* Nav Items */}
+        <HStack spacing={8}>
+          {user && (
+            <>
+              <Link to="/">
+                <Text
+                  fontSize="md"
+                  fontWeight="medium"
+                  cursor="pointer"
+                  color={textColor}
+                  _hover={{ color: useColorModeValue('black', 'white') }}
+                  transition="color 0.2s"
+                >
+                  Home
+                </Text>
+              </Link>
+              <Link to="/browse">
+                <Text
+                  fontSize="md"
+                  fontWeight="medium"
+                  cursor="pointer"
+                  color={textColor}
+                  _hover={{ color: useColorModeValue('black', 'white') }}
+                  transition="color 0.2s"
+                >
+                  Browse
+                </Text>
+              </Link>
+            </>
+          )}
+
+          {/* Theme Toggle */}
+          <Menu>
+            <MenuButton
+              as={IconButton}
+              icon={
+                themeMode === 'light' ? <FiSun /> :
+                themeMode === 'dark' ? <FiMoon /> :
+                <FiMonitor />
+              }
+              variant="ghost"
+              aria-label="Toggle theme"
+              _hover={{ bg: hoverBg }}
             />
-          </InputGroup>
+            <MenuList bg={bg} borderColor={borderColor}>
+              <MenuItem
+                icon={<FiSun />}
+                onClick={() => handleThemeChange('light')}
+                bg={themeMode === 'light' ? hoverBg : 'transparent'}
+                _hover={{ bg: hoverBg }}
+              >
+                Light
+              </MenuItem>
+              <MenuItem
+                icon={<FiMoon />}
+                onClick={() => handleThemeChange('dark')}
+                bg={themeMode === 'dark' ? hoverBg : 'transparent'}
+                _hover={{ bg: hoverBg }}
+              >
+                Dark
+              </MenuItem>
+              <MenuItem
+                icon={<FiMonitor />}
+                onClick={() => handleThemeChange('system')}
+                bg={themeMode === 'system' ? hoverBg : 'transparent'}
+                _hover={{ bg: hoverBg }}
+              >
+                System
+              </MenuItem>
+            </MenuList>
+          </Menu>
 
+          {/* User Menu */}
           {user ? (
             <Menu>
               <MenuButton>
-                <Avatar size="sm" src={user.photoURL} name={user.displayName} />
+                <Avatar
+                  size="sm"
+                  name={user.email}
+                  src={user.photoURL}
+                  cursor="pointer"
+                  border="2px solid"
+                  borderColor={useColorModeValue('black', 'white')}
+                  _hover={{ transform: 'scale(1.1)' }}
+                  transition="all 0.2s"
+                />
               </MenuButton>
-              <MenuList bg="gray.900" borderColor="gray.700">
-                <MenuItem bg="gray.900" _hover={{ bg: 'gray.800' }} onClick={() => navigate('/profile')}>
-                  Profile
+              <MenuList bg={bg} borderColor={borderColor}>
+                <MenuItem isDisabled>
+                  <Text fontSize="sm" fontWeight="medium">
+                    {user.email}
+                  </Text>
                 </MenuItem>
-                {isAdmin(user.email) && (
-                  <MenuItem bg="gray.900" _hover={{ bg: 'gray.800' }} onClick={() => navigate('/admin')}>
-                    Upload Content
-                  </MenuItem>
-                )}
-                <MenuItem bg="gray.900" _hover={{ bg: 'gray.800' }} onClick={() => navigate('/settings')}>
-                  Settings
+                <MenuItem
+                  as={Link}
+                  to="/admin"
+                  _hover={{ bg: hoverBg }}
+                >
+                  Admin Panel
                 </MenuItem>
-                <MenuItem bg="gray.900" _hover={{ bg: 'gray.800' }} onClick={logout}>
-                  Sign Out
+                <MenuItem
+                  onClick={handleLogout}
+                  _hover={{ bg: hoverBg }}
+                >
+                  Logout
                 </MenuItem>
               </MenuList>
             </Menu>
           ) : (
-            <Button variant="primary" size="sm" onClick={() => navigate('/login')}>
-              Sign In
-            </Button>
+            <HStack spacing={3}>
+              <Button
+                as={Link}
+                to="/login"
+                variant="outline"
+                size="sm"
+              >
+                Sign In
+              </Button>
+              <Button
+                as={Link}
+                to="/signup"
+                variant="solid"
+                size="sm"
+              >
+                Sign Up
+              </Button>
+            </HStack>
           )}
-        </Flex>
+        </HStack>
       </Flex>
     </Box>
   );

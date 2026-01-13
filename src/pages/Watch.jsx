@@ -1,310 +1,222 @@
 import { useEffect, useState } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
 import {
   Box,
-  Button,
+  Container,
   Heading,
   Text,
-  HStack,
   VStack,
-  IconButton,
-  useToast,
+  HStack,
+  Button,
+  Badge,
   Spinner,
-  Container,
+  Center,
 } from '@chakra-ui/react';
-import ReactPlayer from 'react-player';
-import { ArrowBackIcon } from '@chakra-ui/icons';
-import { AiFillHeart, AiOutlineHeart } from 'react-icons/ai';
-import { ref, get, update, increment } from 'firebase/database';
+import { useParams, useNavigate } from 'react-router-dom';
+import { ref, get, update } from 'firebase/database';
 import { db } from '../config/firebase';
-import { useAuth } from '../hooks/useAuth';
+import { CustomVideoPlayer } from '../components/CustomVideoPlayer';
+import { FiThumbsUp, FiShare2 } from 'react-icons/fi';
+import { BiArrowBack } from 'react-icons/bi';
 
 export const Watch = () => {
-  const { id } = useParams(); // Get movie ID from URL
+  const { id } = useParams();
   const navigate = useNavigate();
-  const { user, addToFavorites, removeFromFavorites } = useAuth();
-  const toast = useToast();
-
-  // State management
   const [movie, setMovie] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [playing, setPlaying] = useState(false);
-  const [isFavorite, setIsFavorite] = useState(false);
-  const [watchProgress, setWatchProgress] = useState(0);
-  const [hasTrackedView, setHasTrackedView] = useState(false);
+  const [liked, setLiked] = useState(false);
 
-  // Load movie data when page loads
   useEffect(() => {
     const loadMovie = async () => {
       try {
         const movieRef = ref(db, `movies/${id}`);
         const snapshot = await get(movieRef);
-
+        
         if (snapshot.exists()) {
           const movieData = { id, ...snapshot.val() };
           setMovie(movieData);
-
-          // Check if this movie is in user's favorites
-          if (user && user.favorites) {
-            setIsFavorite(user.favorites.includes(id));
-          }
-
-          // Load watch progress if user was watching before
-          if (user) {
-            const progressRef = ref(db, `users/${user.uid}/watchProgress/${id}`);
-            const progressSnapshot = await get(progressRef);
-            if (progressSnapshot.exists()) {
-              setWatchProgress(progressSnapshot.val().progress || 0);
-            }
-          }
-        } else {
-          toast({
-            title: 'Movie not found',
-            status: 'error',
-            duration: 3000,
+          
+          // Increment view count
+          await update(movieRef, {
+            views: (movieData.views || 0) + 1,
           });
-          navigate('/');
+        } else {
+          console.error('Movie not found');
         }
       } catch (error) {
         console.error('Error loading movie:', error);
-        toast({
-          title: 'Error loading video',
-          description: error.message,
-          status: 'error',
-          duration: 3000,
-        });
       } finally {
         setLoading(false);
       }
     };
 
     loadMovie();
-  }, [id, user, navigate, toast]);
+  }, [id]);
 
-  // Track view count (only once per session)
-  const trackView = async () => {
-    if (hasTrackedView || !movie) return;
-
-    try {
-      const viewsRef = ref(db, `movies/${id}/views`);
-      await update(ref(db, `movies/${id}`), {
-        views: increment(1)
-      });
-
-      setHasTrackedView(true);
-
-      // Add to user's watch history
-      if (user) {
-        const historyRef = ref(db, `users/${user.uid}/watchHistory/${id}`);
-        await update(historyRef, {
-          watchedAt: new Date().toISOString(),
-          title: movie.title,
-          thumbnailUrl: movie.thumbnailUrl,
-        });
-      }
-    } catch (error) {
-      console.error('Error tracking view:', error);
-    }
-  };
-
-  // Save watch progress (where user paused/stopped)
-  const saveProgress = async (progress) => {
-    if (!user || !movie) return;
-
-    try {
-      const progressRef = ref(db, `users/${user.uid}/watchProgress/${id}`);
-      await update(progressRef, {
-        progress, // Progress in seconds
-        lastWatchedAt: new Date().toISOString(),
-        title: movie.title,
-        thumbnailUrl: movie.thumbnailUrl,
-      });
-    } catch (error) {
-      console.error('Error saving progress:', error);
-    }
-  };
-
-  // Called when video progresses
-  const handleProgress = (state) => {
-    const currentTime = state.playedSeconds;
+  const handleLike = async () => {
+    if (!movie) return;
     
-    // Track view after 10 seconds of watching
-    if (currentTime > 10 && !hasTrackedView) {
-      trackView();
-    }
-
-    // Save progress every 10 seconds
-    if (Math.floor(currentTime) % 10 === 0) {
-      saveProgress(currentTime);
-    }
-  };
-
-  // Toggle favorite
-  const handleFavoriteToggle = async () => {
-    if (!user) {
-      toast({
-        title: 'Please sign in',
-        description: 'Sign in to add favorites',
-        status: 'warning',
-        duration: 3000,
-      });
-      navigate('/login');
-      return;
-    }
-
     try {
-      if (isFavorite) {
-        await removeFromFavorites(id);
-        setIsFavorite(false);
-        toast({
-          title: 'Removed from favorites',
-          status: 'info',
-          duration: 2000,
-        });
-      } else {
-        await addToFavorites(id);
-        setIsFavorite(true);
-        toast({
-          title: 'Added to favorites',
-          status: 'success',
-          duration: 2000,
-        });
-      }
-    } catch (error) {
-      console.error('Error toggling favorite:', error);
-      toast({
-        title: 'Error',
-        description: 'Failed to update favorites',
-        status: 'error',
-        duration: 3000,
+      const movieRef = ref(db, `movies/${id}`);
+      const newLikes = liked ? (movie.likes || 0) - 1 : (movie.likes || 0) + 1;
+      
+      await update(movieRef, {
+        likes: Math.max(0, newLikes),
       });
+      
+      setMovie({ ...movie, likes: newLikes });
+      setLiked(!liked);
+    } catch (error) {
+      console.error('Error updating likes:', error);
     }
   };
 
-  // Format duration (seconds to minutes)
-  const formatDuration = (seconds) => {
-    if (!seconds) return '0m';
-    const minutes = Math.floor(seconds / 60);
-    return `${minutes}m`;
+  const handleShare = async () => {
+    if (navigator.share) {
+      try {
+        await navigator.share({
+          title: movie.title,
+          text: movie.description,
+          url: window.location.href,
+        });
+      } catch (error) {
+        console.log('Share cancelled');
+      }
+    } else {
+      // Fallback: copy to clipboard
+      navigator.clipboard.writeText(window.location.href);
+      alert('Link copied to clipboard!');
+    }
   };
 
   if (loading) {
     return (
-      <Box minH="100vh" display="flex" alignItems="center" justifyContent="center">
-        <VStack spacing={4}>
-          <Spinner size="xl" color="brand.primary" thickness="4px" />
-          <Text>Loading video...</Text>
-        </VStack>
-      </Box>
+      <Center h="100vh" bg="black">
+        <Spinner size="xl" color="red.600" thickness="4px" />
+      </Center>
     );
   }
 
   if (!movie) {
     return (
-      <Box minH="100vh" display="flex" alignItems="center" justifyContent="center">
-        <Text>Video not found</Text>
-      </Box>
+      <Center h="100vh" bg="black" flexDirection="column">
+        <Text fontSize="2xl" color="white" mb={4}>
+          Movie not found
+        </Text>
+        <Button
+          bg="red.600"
+          color="white"
+          _hover={{ bg: 'red.700' }}
+          onClick={() => navigate('/')}
+        >
+          Go Home
+        </Button>
+      </Center>
     );
   }
 
   return (
-    <Box minH="100vh" bg="brand.background">
-      {/* Video Player */}
-      <Box position="relative" bg="black">
-        <ReactPlayer
-          url={movie.videoUrl}
-          width="100%"
-          height="100vh"
-          playing={playing}
-          controls={true}
-          onProgress={handleProgress}
-          onPlay={() => setPlaying(true)}
-          onPause={() => setPlaying(false)}
-          config={{
-            file: {
-              attributes: {
-                controlsList: 'nodownload', // Disable download button
-              },
-            },
-          }}
-          // Start from saved progress
-          onReady={(player) => {
-            if (watchProgress > 0) {
-              player.seekTo(watchProgress, 'seconds');
-            }
-          }}
-        />
-
-        {/* Back Button Overlay */}
-        <IconButton
-          icon={<ArrowBackIcon />}
-          position="absolute"
-          top={4}
-          left={4}
-          onClick={() => navigate('/')}
-          bg="rgba(0,0,0,0.6)"
+    <Box minH="100vh" bg="black" pt={16}>
+      {/* Back Button */}
+      <Container maxW="container.xl" px={4}>
+        <Button
+          leftIcon={<BiArrowBack />}
+          variant="ghost"
           color="white"
-          _hover={{ bg: 'rgba(0,0,0,0.8)' }}
-          size="lg"
-          borderRadius="full"
-          aria-label="Go back"
-        />
+          _hover={{ bg: 'gray.800' }}
+          onClick={() => navigate(-1)}
+          mb={4}
+        >
+          Back
+        </Button>
+      </Container>
+
+      {/* Video Player */}
+      <Box w="100%" bg="black">
+        <Container maxW="container.xl" px={4}>
+          <CustomVideoPlayer
+            videoUrl={movie.videoUrl}
+            videoSource={movie.videoSource || 'cloudinary'}
+            title={movie.title}
+          />
+        </Container>
       </Box>
 
-      {/* Movie Details */}
-      <Container maxW="1400px" py={8}>
-        <HStack justify="space-between" align="start" mb={6}>
-          <VStack align="start" spacing={3} flex={1}>
-            <Heading size="2xl" color="brand.text">
-              {movie.title}
-            </Heading>
+      {/* Movie Info */}
+      <Container maxW="container.xl" px={4} py={8}>
+        <VStack align="stretch" spacing={6}>
+          <HStack justify="space-between" align="start" flexWrap="wrap">
+            <VStack align="start" spacing={2} flex={1}>
+              <Heading color="white" size="2xl">
+                {movie.title}
+              </Heading>
+              
+              <HStack spacing={4} flexWrap="wrap">
+                <Badge colorScheme="red" fontSize="md" px={3} py={1}>
+                  {movie.genre}
+                </Badge>
+                {movie.year && (
+                  <Text color="gray.400" fontSize="lg">
+                    {movie.year}
+                  </Text>
+                )}
+                {movie.views > 0 && (
+                  <Text color="gray.400" fontSize="sm">
+                    {movie.views.toLocaleString()} views
+                  </Text>
+                )}
+              </HStack>
+            </VStack>
 
-            <HStack spacing={4} color="brand.textGray">
-              <Text>{movie.year}</Text>
-              <Text>•</Text>
-              <Text textTransform="capitalize">{movie.genre}</Text>
-              <Text>•</Text>
-              <Text>{formatDuration(movie.duration)}</Text>
-              <Text>•</Text>
-              <Text>{movie.views || 0} views</Text>
+            <HStack spacing={3}>
+              <Button
+                leftIcon={<FiThumbsUp />}
+                colorScheme={liked ? 'red' : 'gray'}
+                variant={liked ? 'solid' : 'outline'}
+                onClick={handleLike}
+              >
+                {movie.likes || 0}
+              </Button>
+              <Button
+                leftIcon={<FiShare2 />}
+                variant="outline"
+                colorScheme="gray"
+                onClick={handleShare}
+              >
+                Share
+              </Button>
             </HStack>
+          </HStack>
 
-            {movie.cast && (
-              <Text color="brand.textGray">
-                <Text as="span" fontWeight="bold">Cast:</Text> {movie.cast}
-              </Text>
-            )}
-
-            {movie.director && (
-              <Text color="brand.textGray">
-                <Text as="span" fontWeight="bold">Director:</Text> {movie.director}
-              </Text>
-            )}
-          </VStack>
-
-          {/* Favorite Button */}
-          <IconButton
-            icon={isFavorite ? <AiFillHeart /> : <AiOutlineHeart />}
-            onClick={handleFavoriteToggle}
-            colorScheme={isFavorite ? 'red' : 'gray'}
-            size="lg"
-            fontSize="2xl"
-            aria-label="Add to favorites"
-          />
-        </HStack>
-
-        {/* Description */}
-        <Box
-          p={6}
-          bg="brand.cardBg"
-          borderRadius="lg"
-          border="1px solid"
-          borderColor="gray.700"
-        >
-          <Text fontSize="lg" lineHeight="1.8">
+          <Text color="gray.300" fontSize="lg" lineHeight="tall">
             {movie.description}
           </Text>
-        </Box>
+
+          {(movie.cast || movie.director) && (
+            <VStack align="stretch" spacing={3}>
+              {movie.cast && (
+                <Box>
+                  <Text color="gray.500" fontSize="sm" mb={1}>
+                    Cast
+                  </Text>
+                  <Text color="white" fontSize="md">
+                    {movie.cast}
+                  </Text>
+                </Box>
+              )}
+              
+              {movie.director && (
+                <Box>
+                  <Text color="gray.500" fontSize="sm" mb={1}>
+                    Director
+                  </Text>
+                  <Text color="white" fontSize="md">
+                    {movie.director}
+                  </Text>
+                </Box>
+              )}
+            </VStack>
+          )}
+        </VStack>
       </Container>
     </Box>
   );

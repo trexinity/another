@@ -18,6 +18,13 @@ import {
   AlertIcon,
   AlertTitle,
   AlertDescription,
+  Badge,
+  Tabs,
+  TabList,
+  TabPanels,
+  Tab,
+  TabPanel,
+  useColorModeValue,
 } from '@chakra-ui/react';
 import { useDropzone } from 'react-dropzone';
 import { uploadVideo, uploadImage } from '../services/cloudinaryService';
@@ -32,8 +39,27 @@ export const Admin = () => {
   const navigate = useNavigate();
   const toast = useToast();
 
+  // Color mode values
+  const bg = useColorModeValue('white', 'black');
+  const cardBg = useColorModeValue('white', 'gray.900');
+  const borderColor = useColorModeValue('gray.200', 'gray.800');
+  const inputBg = useColorModeValue('gray.50', 'gray.800');
+  const buttonBg = useColorModeValue('black', 'white');
+  const buttonColor = useColorModeValue('white', 'black');
+  const buttonHoverBg = useColorModeValue('gray.800', 'gray.200');
+
+  // Video source state
+  const [videoSource, setVideoSource] = useState('archive');
+  
+  // File states
   const [videoFile, setVideoFile] = useState(null);
   const [thumbnailFile, setThumbnailFile] = useState(null);
+  
+  // URL states
+  const [archiveUrl, setArchiveUrl] = useState('');
+  const [googleDriveUrl, setGoogleDriveUrl] = useState('');
+  
+  // Form states
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [genre, setGenre] = useState('');
@@ -41,13 +67,12 @@ export const Admin = () => {
   const [cast, setCast] = useState('');
   const [director, setDirector] = useState('');
   
+  // Upload states
   const [uploadProgress, setUploadProgress] = useState(0);
   const [isUploading, setIsUploading] = useState(false);
   const [currentStep, setCurrentStep] = useState('');
 
-  // ========================================
-  // ADMIN PROTECTION
-  // ========================================
+  // Admin protection
   if (!user) {
     navigate('/login');
     return null;
@@ -55,7 +80,7 @@ export const Admin = () => {
 
   if (!isAdmin(user.email)) {
     return (
-      <Box minH="100vh" pt={24} display="flex" alignItems="center" justifyContent="center" px={4}>
+      <Box minH="100vh" pt={24} display="flex" alignItems="center" justifyContent="center" px={4} bg={bg}>
         <Alert
           status="error"
           variant="subtle"
@@ -66,24 +91,22 @@ export const Admin = () => {
           maxW="500px"
           p={8}
           borderRadius="lg"
-          bg="red.900"
-          bgOpacity={0.2}
+          bg={cardBg}
           border="1px solid"
-          borderColor="red.700"
+          borderColor={borderColor}
         >
-          <AlertIcon boxSize="60px" mr={0} color="red.500" />
-          <AlertTitle mt={4} mb={2} fontSize="2xl" color="white">
+          <AlertIcon boxSize="60px" mr={0} />
+          <AlertTitle mt={4} mb={2} fontSize="2xl">
             🚫 Access Denied
           </AlertTitle>
-          <AlertDescription maxWidth="sm" fontSize="md" color="gray.300">
-            This page is restricted to administrators only. You need admin privileges to upload content.
+          <AlertDescription maxWidth="sm" fontSize="md" color="gray.500">
+            This page is restricted to administrators only.
           </AlertDescription>
           <VStack spacing={3} mt={6}>
             <Text fontSize="sm" color="gray.400">
               Signed in as: {user.email}
             </Text>
             <Button
-              variant="primary"
               onClick={() => navigate('/')}
             >
               Go to Home
@@ -93,32 +116,47 @@ export const Admin = () => {
       </Box>
     );
   }
-  // ========================================
 
+  // Helper functions
+  const extractGoogleDriveId = (url) => {
+    if (!url) return null;
+    const patterns = [
+      /\/file\/d\/([a-zA-Z0-9_-]+)/,
+      /id=([a-zA-Z0-9_-]+)/,
+      /\/open\?id=([a-zA-Z0-9_-]+)/,
+    ];
+    for (const pattern of patterns) {
+      const match = url.match(pattern);
+      if (match && match[1]) return match[1];
+    }
+    return null;
+  };
+
+  const isValidGoogleDriveUrl = (url) => {
+    return extractGoogleDriveId(url) !== null;
+  };
+
+  const isValidArchiveUrl = (url) => {
+    return url && url.includes('archive.org');
+  };
+
+  // Dropzone configurations
   const { getRootProps: getVideoRootProps, getInputProps: getVideoInputProps } = useDropzone({
     accept: {
-      'video/*': ['.mp4', '.mov', '.avi', '.mkv']
+      'video/*': ['.mp4', '.mov', '.avi', '.mkv', '.webm']
     },
     maxFiles: 1,
-    maxSize: 500000000,
+    maxSize: 100000000,
     onDrop: (acceptedFiles) => {
       if (acceptedFiles.length > 0) {
         setVideoFile(acceptedFiles[0]);
         toast({
           title: 'Video selected',
-          description: acceptedFiles[0].name,
+          description: `${acceptedFiles[0].name}`,
           status: 'success',
           duration: 2000,
         });
       }
-    },
-    onDropRejected: (fileRejections) => {
-      toast({
-        title: 'File rejected',
-        description: fileRejections[0].errors[0].message,
-        status: 'error',
-        duration: 3000,
-      });
     },
   });
 
@@ -133,7 +171,6 @@ export const Admin = () => {
         setThumbnailFile(acceptedFiles[0]);
         toast({
           title: 'Thumbnail selected',
-          description: acceptedFiles[0].name,
           status: 'success',
           duration: 2000,
         });
@@ -141,15 +178,45 @@ export const Admin = () => {
     },
   });
 
+  // Upload handler
   const handleUpload = async () => {
-    if (!videoFile || !thumbnailFile || !title || !genre) {
+    if (!title || !genre || !thumbnailFile) {
       toast({
         title: 'Missing information',
-        description: 'Please fill in all required fields (marked with *)',
+        description: 'Please fill in title, genre, and thumbnail',
         status: 'error',
         duration: 4000,
       });
       return;
+    }
+
+    if (videoSource === 'archive') {
+      if (!archiveUrl || !isValidArchiveUrl(archiveUrl)) {
+        toast({
+          title: 'Invalid Archive.org link',
+          status: 'error',
+          duration: 4000,
+        });
+        return;
+      }
+    } else if (videoSource === 'googledrive') {
+      if (!googleDriveUrl || !isValidGoogleDriveUrl(googleDriveUrl)) {
+        toast({
+          title: 'Invalid Google Drive link',
+          status: 'error',
+          duration: 4000,
+        });
+        return;
+      }
+    } else if (videoSource === 'cloudinary') {
+      if (!videoFile) {
+        toast({
+          title: 'No video selected',
+          status: 'error',
+          duration: 4000,
+        });
+        return;
+      }
     }
 
     setIsUploading(true);
@@ -158,25 +225,48 @@ export const Admin = () => {
     try {
       setCurrentStep('Uploading thumbnail...');
       const thumbnailResult = await uploadImage(thumbnailFile, (progress) => {
-        setUploadProgress(progress * 0.2);
+        setUploadProgress(progress * 0.3);
       });
 
       if (!thumbnailResult.success) {
-        throw new Error('Thumbnail upload failed: ' + thumbnailResult.error);
+        throw new Error('Thumbnail upload failed');
       }
 
-      setCurrentStep('Uploading video... This may take a few minutes');
-      const videoResult = await uploadVideo(videoFile, (progress) => {
-        setUploadProgress(20 + (progress * 0.7));
-      });
+      setUploadProgress(40);
 
-      if (!videoResult.success) {
-        throw new Error('Video upload failed: ' + videoResult.error);
+      let videoUrl;
+      let duration = 0;
+      let finalVideoSource;
+
+      if (videoSource === 'archive') {
+        setCurrentStep('Processing Archive.org link...');
+        videoUrl = archiveUrl;
+        finalVideoSource = 'archive';
+        setUploadProgress(90);
+      } else if (videoSource === 'googledrive') {
+        setCurrentStep('Processing Google Drive link...');
+        const driveId = extractGoogleDriveId(googleDriveUrl);
+        videoUrl = `https://drive.google.com/file/d/${driveId}/preview`;
+        finalVideoSource = 'googledrive';
+        setUploadProgress(90);
+      } else {
+        setCurrentStep('Uploading video...');
+        const videoResult = await uploadVideo(videoFile, (progress) => {
+          setUploadProgress(40 + (progress * 0.5));
+        });
+
+        if (!videoResult.success) {
+          throw new Error('Video upload failed');
+        }
+
+        videoUrl = videoResult.url;
+        duration = videoResult.duration || 0;
+        finalVideoSource = 'cloudinary';
+        setUploadProgress(90);
       }
 
-      setCurrentStep('Saving movie information...');
-      setUploadProgress(95);
-
+      setCurrentStep('Saving to database...');
+      
       const moviesRef = ref(db, 'movies');
       const newMovieRef = push(moviesRef);
       
@@ -187,9 +277,10 @@ export const Admin = () => {
         year: parseInt(year) || new Date().getFullYear(),
         cast: cast.trim(),
         director: director.trim(),
-        videoUrl: videoResult.url,
+        videoUrl,
+        videoSource: finalVideoSource,
         thumbnailUrl: thumbnailResult.url,
-        duration: videoResult.duration || 0,
+        duration,
         views: 0,
         likes: 0,
         createdAt: new Date().toISOString(),
@@ -198,11 +289,11 @@ export const Admin = () => {
       });
 
       setUploadProgress(100);
-      setCurrentStep('Complete!');
+      setCurrentStep('✅ Complete!');
 
       toast({
-        title: 'Success! 🎉',
-        description: `${title} has been uploaded successfully`,
+        title: 'Success!',
+        description: `${title} uploaded successfully`,
         status: 'success',
         duration: 5000,
       });
@@ -210,6 +301,8 @@ export const Admin = () => {
       setTimeout(() => {
         setVideoFile(null);
         setThumbnailFile(null);
+        setArchiveUrl('');
+        setGoogleDriveUrl('');
         setTitle('');
         setDescription('');
         setGenre('');
@@ -236,60 +329,62 @@ export const Admin = () => {
   };
 
   return (
-    <Box minH="100vh" pt={24} pb={12} px={4}>
+    <Box minH="100vh" pt={24} pb={12} px={4} bg={bg}>
       <Box maxW="900px" mx="auto">
         <HStack justify="space-between" align="center" mb={2}>
-          <Heading color="brand.primary" size="2xl">
-            Upload New Content
+          <Heading size="2xl" fontFamily="CustomLogo">
+            Upload Content
           </Heading>
-          <Text fontSize="sm" color="green.400" fontWeight="bold">
-            ✓ Admin Access
-          </Text>
+          <Badge colorScheme="green" fontSize="md" px={3} py={1}>
+            ✓ Admin
+          </Badge>
         </HStack>
         
-        <Text color="brand.textGray" mb={8}>
-          Add movies and shows to your streaming platform
+        <Text color="gray.500" mb={8}>
+          100% Free hosting options - choose your preferred method
         </Text>
 
         <VStack spacing={6} align="stretch">
+          {/* Title */}
           <FormControl isRequired>
-            <FormLabel>Title *</FormLabel>
+            <FormLabel fontSize="lg">Title *</FormLabel>
             <Input
               value={title}
               onChange={(e) => setTitle(e.target.value)}
-              placeholder="Enter movie or show title"
-              bg="brand.cardBg"
+              placeholder="Enter title"
+              bg={inputBg}
               border="1px solid"
-              borderColor="gray.700"
-              _focus={{ borderColor: 'brand.primary' }}
+              borderColor={borderColor}
               size="lg"
             />
           </FormControl>
 
+          {/* Description */}
           <FormControl isRequired>
-            <FormLabel>Description *</FormLabel>
+            <FormLabel fontSize="lg">Description *</FormLabel>
             <Textarea
               value={description}
               onChange={(e) => setDescription(e.target.value)}
-              placeholder="Write a brief description..."
+              placeholder="Write description..."
               rows={4}
-              bg="brand.cardBg"
+              bg={inputBg}
               border="1px solid"
-              borderColor="gray.700"
-              _focus={{ borderColor: 'brand.primary' }}
+              borderColor={borderColor}
             />
           </FormControl>
 
-          <HStack spacing={4} align="start">
+          {/* Genre and Year */}
+          <HStack spacing={4}>
             <FormControl isRequired flex={1}>
-              <FormLabel>Genre *</FormLabel>
+              <FormLabel fontSize="lg">Genre *</FormLabel>
               <Select
                 value={genre}
                 onChange={(e) => setGenre(e.target.value)}
                 placeholder="Select genre"
-                bg="brand.cardBg"
+                bg={inputBg}
                 border="1px solid"
-                borderColor="gray.700"
+                borderColor={borderColor}
+                size="lg"
               >
                 <option value="action">Action</option>
                 <option value="comedy">Comedy</option>
@@ -304,160 +399,258 @@ export const Admin = () => {
             </FormControl>
 
             <FormControl flex={1}>
-              <FormLabel>Year</FormLabel>
+              <FormLabel fontSize="lg">Year</FormLabel>
               <Input
                 type="number"
                 value={year}
                 onChange={(e) => setYear(e.target.value)}
                 placeholder="2024"
-                bg="brand.cardBg"
+                bg={inputBg}
                 border="1px solid"
-                borderColor="gray.700"
+                borderColor={borderColor}
+                size="lg"
               />
             </FormControl>
           </HStack>
 
+          {/* Cast and Director */}
           <HStack spacing={4}>
             <FormControl flex={1}>
-              <FormLabel>Cast</FormLabel>
+              <FormLabel fontSize="lg">Cast</FormLabel>
               <Input
                 value={cast}
                 onChange={(e) => setCast(e.target.value)}
-                placeholder="Actor 1, Actor 2, Actor 3"
-                bg="brand.cardBg"
+                placeholder="Actor 1, Actor 2"
+                bg={inputBg}
                 border="1px solid"
-                borderColor="gray.700"
+                borderColor={borderColor}
+                size="lg"
               />
             </FormControl>
 
             <FormControl flex={1}>
-              <FormLabel>Director</FormLabel>
+              <FormLabel fontSize="lg">Director</FormLabel>
               <Input
                 value={director}
                 onChange={(e) => setDirector(e.target.value)}
                 placeholder="Director name"
-                bg="brand.cardBg"
+                bg={inputBg}
                 border="1px solid"
-                borderColor="gray.700"
+                borderColor={borderColor}
+                size="lg"
               />
             </FormControl>
           </HStack>
 
+          {/* Video Source Tabs */}
           <FormControl isRequired>
-            <FormLabel>Video File * (MP4, MOV, AVI, MKV - Max 500MB)</FormLabel>
-            <Box
-              {...getVideoRootProps()}
-              p={10}
-              border="2px dashed"
-              borderColor={videoFile ? 'brand.primary' : 'gray.600'}
-              borderRadius="lg"
-              textAlign="center"
-              cursor="pointer"
-              bg="brand.cardBg"
-              _hover={{ borderColor: 'brand.primary', bg: 'gray.800' }}
-              transition="all 0.2s"
+            <FormLabel fontSize="lg" mb={3}>
+              Video Source * (All 100% Free)
+            </FormLabel>
+            <Tabs
+              variant="enclosed"
+              index={
+                videoSource === 'archive' ? 0 : 
+                videoSource === 'googledrive' ? 1 : 2
+              }
+              onChange={(index) => 
+                setVideoSource(
+                  index === 0 ? 'archive' : 
+                  index === 1 ? 'googledrive' : 'cloudinary'
+                )
+              }
             >
-              <input {...getVideoInputProps()} />
-              {videoFile ? (
-                <VStack spacing={2}>
-                  <Text color="brand.primary" fontWeight="bold">
-                    ✓ {videoFile.name}
-                  </Text>
-                  <Text fontSize="sm" color="brand.textGray">
-                    {(videoFile.size / 1024 / 1024).toFixed(2)} MB
-                  </Text>
-                  <Text fontSize="xs" color="brand.textGray">
-                    Click to change
-                  </Text>
-                </VStack>
-              ) : (
-                <VStack spacing={2}>
-                  <Text fontSize="3xl">📹</Text>
-                  <Text>Drag & drop video file here</Text>
-                  <Text fontSize="sm" color="brand.textGray">
-                    or click to browse
-                  </Text>
-                </VStack>
-              )}
-            </Box>
+              <TabList borderColor={borderColor}>
+                <Tab _selected={{ bg: cardBg, borderColor: borderColor }}>
+                  📚 Archive.org ⭐
+                </Tab>
+                <Tab _selected={{ bg: cardBg, borderColor: borderColor }}>
+                  🔗 Google Drive
+                </Tab>
+                <Tab _selected={{ bg: cardBg, borderColor: borderColor }}>
+                  ☁️ Cloudinary
+                </Tab>
+              </TabList>
+
+              <TabPanels>
+                {/* Archive.org Tab */}
+                <TabPanel px={0} pt={4}>
+                  <VStack align="stretch" spacing={3}>
+                    <Alert status="success" borderRadius="md" border="1px solid" borderColor={borderColor}>
+                      <AlertIcon />
+                      <Box fontSize="sm">
+                        <Text fontWeight="bold" mb={2}>🎉 BEST - 100% FREE FOREVER:</Text>
+                        <Text>✅ Unlimited storage & bandwidth</Text>
+                        <Text>✅ No file size limits</Text>
+                        <Text>✅ No branding - full control</Text>
+                      </Box>
+                    </Alert>
+
+                    <Input
+                      value={archiveUrl}
+                      onChange={(e) => setArchiveUrl(e.target.value)}
+                      placeholder="Paste any archive.org link"
+                      bg={inputBg}
+                      border="1px solid"
+                      borderColor={borderColor}
+                      size="lg"
+                    />
+
+                    {archiveUrl && (
+                      <Alert 
+                        status={isValidArchiveUrl(archiveUrl) ? "success" : "error"} 
+                        borderRadius="md"
+                      >
+                        <AlertIcon />
+                        <Text fontSize="sm">
+                          {isValidArchiveUrl(archiveUrl) 
+                            ? "✓ Valid Archive.org URL" 
+                            : "✗ Invalid link"}
+                        </Text>
+                      </Alert>
+                    )}
+                  </VStack>
+                </TabPanel>
+
+                {/* Google Drive Tab */}
+                <TabPanel px={0} pt={4}>
+                  <VStack align="stretch" spacing={3}>
+                    <Input
+                      value={googleDriveUrl}
+                      onChange={(e) => setGoogleDriveUrl(e.target.value)}
+                      placeholder="Paste Google Drive link"
+                      bg={inputBg}
+                      border="1px solid"
+                      borderColor={borderColor}
+                      size="lg"
+                    />
+
+                    {googleDriveUrl && (
+                      <Alert 
+                        status={isValidGoogleDriveUrl(googleDriveUrl) ? "success" : "error"} 
+                        borderRadius="md"
+                      >
+                        <AlertIcon />
+                        <Text fontSize="sm">
+                          {isValidGoogleDriveUrl(googleDriveUrl) 
+                            ? `✓ Valid (ID: ${extractGoogleDriveId(googleDriveUrl)})` 
+                            : "✗ Invalid link"}
+                        </Text>
+                      </Alert>
+                    )}
+                  </VStack>
+                </TabPanel>
+
+                {/* Cloudinary Tab */}
+                <TabPanel px={0} pt={4}>
+                  <Box
+                    {...getVideoRootProps()}
+                    p={10}
+                    border="2px dashed"
+                    borderColor={videoFile ? borderColor : 'gray.600'}
+                    borderRadius="lg"
+                    textAlign="center"
+                    cursor="pointer"
+                    bg={inputBg}
+                    _hover={{ borderColor: borderColor }}
+                  >
+                    <input {...getVideoInputProps()} />
+                    {videoFile ? (
+                      <VStack spacing={2}>
+                        <Text fontSize="4xl">✅</Text>
+                        <Text fontWeight="bold">
+                          {videoFile.name}
+                        </Text>
+                      </VStack>
+                    ) : (
+                      <VStack spacing={2}>
+                        <Text fontSize="4xl">📹</Text>
+                        <Text>Drag & drop video (max 100MB)</Text>
+                      </VStack>
+                    )}
+                  </Box>
+                </TabPanel>
+              </TabPanels>
+            </Tabs>
           </FormControl>
 
+          {/* Thumbnail */}
           <FormControl isRequired>
-            <FormLabel>Thumbnail Image * (JPG, PNG - Max 10MB)</FormLabel>
+            <FormLabel fontSize="lg">Thumbnail *</FormLabel>
             <Box
               {...getThumbnailRootProps()}
-              p={10}
+              p={8}
               border="2px dashed"
-              borderColor={thumbnailFile ? 'brand.primary' : 'gray.600'}
+              borderColor={thumbnailFile ? borderColor : 'gray.600'}
               borderRadius="lg"
               textAlign="center"
               cursor="pointer"
-              bg="brand.cardBg"
-              _hover={{ borderColor: 'brand.primary', bg: 'gray.800' }}
-              transition="all 0.2s"
+              bg={inputBg}
+              _hover={{ borderColor: borderColor }}
             >
               <input {...getThumbnailInputProps()} />
               {thumbnailFile ? (
                 <VStack spacing={2}>
                   <Image
                     src={URL.createObjectURL(thumbnailFile)}
-                    alt="Thumbnail preview"
+                    alt="Preview"
                     maxH="150px"
                     borderRadius="md"
                   />
-                  <Text color="brand.primary" fontWeight="bold">
-                    ✓ {thumbnailFile.name}
-                  </Text>
-                  <Text fontSize="xs" color="brand.textGray">
-                    Click to change
+                  <Text fontWeight="bold">
+                    {thumbnailFile.name}
                   </Text>
                 </VStack>
               ) : (
                 <VStack spacing={2}>
-                  <Text fontSize="3xl">🖼️</Text>
-                  <Text>Drag & drop thumbnail here</Text>
-                  <Text fontSize="sm" color="brand.textGray">
-                    or click to browse
-                  </Text>
+                  <Text fontSize="4xl">🖼️</Text>
+                  <Text>Drag & drop thumbnail</Text>
                 </VStack>
               )}
             </Box>
           </FormControl>
 
+          {/* Progress */}
           {isUploading && (
-            <Box
-              p={6}
-              bg="brand.cardBg"
-              borderRadius="lg"
-              border="1px solid"
-              borderColor="brand.primary"
-            >
-              <Text mb={2} fontWeight="bold">
-                {currentStep}
-              </Text>
-              <Progress
-                value={uploadProgress}
-                colorScheme="red"
-                size="lg"
-                borderRadius="full"
-                hasStripe
-                isAnimated
-              />
-              <Text mt={2} textAlign="center" fontSize="xl" fontWeight="bold">
-                {Math.round(uploadProgress)}%
-              </Text>
+            <Box p={6} bg={cardBg} borderRadius="lg" border="2px solid" borderColor={borderColor}>
+              <VStack spacing={3}>
+                <Text fontSize="lg" fontWeight="bold">
+                  {currentStep}
+                </Text>
+                <Progress
+                  value={uploadProgress}
+                  colorScheme="gray"
+                  size="lg"
+                  w="100%"
+                  hasStripe
+                  isAnimated
+                />
+                <Text fontSize="xl" fontWeight="bold">
+                  {Math.round(uploadProgress)}%
+                </Text>
+              </VStack>
             </Box>
           )}
 
+          {/* Upload Button */}
           <Button
-            variant="primary"
+            bg={buttonBg}
+            color={buttonColor}
             size="lg"
+            h="60px"
+            fontSize="lg"
             onClick={handleUpload}
             isLoading={isUploading}
-            loadingText="Uploading..."
-            isDisabled={!videoFile || !thumbnailFile || !title || !genre}
+            _hover={{ bg: buttonHoverBg, transform: 'translateY(-2px)' }}
+            _active={{ transform: 'translateY(0)' }}
+            isDisabled={
+              !title || !genre || !thumbnailFile ||
+              (videoSource === 'archive' && !isValidArchiveUrl(archiveUrl)) ||
+              (videoSource === 'googledrive' && !isValidGoogleDriveUrl(googleDriveUrl)) ||
+              (videoSource === 'cloudinary' && !videoFile)
+            }
           >
-            Upload Content
+            🚀 Upload Content
           </Button>
         </VStack>
       </Box>

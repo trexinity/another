@@ -1,107 +1,60 @@
-import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
-import { ChakraProvider } from '@chakra-ui/react';
-import { theme } from './theme/theme';
+import { Routes, Route, Navigate } from 'react-router-dom';
 import { Navbar } from './components/Navbar';
-import { ProtectedRoute } from './components/ProtectedRoute';
-import { Home } from './pages/Home';
-import { Browse } from './pages/Browse';
-import { Categories } from './pages/Categories';
-import { Watch } from './pages/Watch';
-import { Search } from './pages/Search';
-import { Profile } from './pages/Profile';
-import { Settings } from './pages/Settings';
-import { Admin } from './pages/Admin';
 import { Login } from './pages/Login';
-import { AuthProvider } from './context/AuthContext';
+import { Signup } from './pages/Signup';
+import { Home } from './pages/Home';
+import { Admin } from './pages/Admin';
+import { MovieDetail } from './pages/MovieDetail';
+import { AuthProvider } from './hooks/useAuth';
+import { useAuth } from './hooks/useAuth';
+import { Box } from '@chakra-ui/react';
+
+const ProtectedRoute = ({ children }) => {
+  const { user } = useAuth();
+  return user ? children : <Navigate to="/login" />;
+};
+
+function AppContent() {
+  return (
+    <Box minH="100vh">
+      <Navbar />
+      <Routes>
+        <Route path="/login" element={<Login />} />
+        <Route path="/signup" element={<Signup />} />
+        <Route
+          path="/"
+          element={
+            <ProtectedRoute>
+              <Home />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/admin"
+          element={
+            <ProtectedRoute>
+              <Admin />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/movie/:id"
+          element={
+            <ProtectedRoute>
+              <MovieDetail />
+            </ProtectedRoute>
+          }
+        />
+      </Routes>
+    </Box>
+  );
+}
 
 function App() {
   return (
-    <ChakraProvider theme={theme}>
-      <AuthProvider>
-        <Router>
-          <Routes>
-            {/* Public Route */}
-            <Route path="/login" element={<Login />} />
-            
-            {/* Protected Routes */}
-            <Route
-              path="/"
-              element={
-                <ProtectedRoute>
-                  <Navbar />
-                  <Home />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/browse"
-              element={
-                <ProtectedRoute>
-                  <Navbar />
-                  <Browse />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/categories"
-              element={
-                <ProtectedRoute>
-                  <Navbar />
-                  <Categories />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/watch/:id"
-              element={
-                <ProtectedRoute>
-                  <Watch />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/search"
-              element={
-                <ProtectedRoute>
-                  <Navbar />
-                  <Search />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/profile"
-              element={
-                <ProtectedRoute>
-                  <Navbar />
-                  <Profile />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/settings"
-              element={
-                <ProtectedRoute>
-                  <Navbar />
-                  <Settings />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/admin"
-              element={
-                <ProtectedRoute>
-                  <Navbar />
-                  <Admin />
-                </ProtectedRoute>
-              }
-            />
-            
-            {/* Catch all */}
-            <Route path="*" element={<Navigate to="/" replace />} />
-          </Routes>
-        </Router>
-      </AuthProvider>
-    </ChakraProvider>
+    <AuthProvider>
+      <AppContent />
+    </AuthProvider>
   );
 }
 
